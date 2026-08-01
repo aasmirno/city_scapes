@@ -62,10 +62,11 @@ class City:
         ax[0].set_title('demand')
         ax[1].set_title('demand_exceeded')
         ax[1].axhline(0, color='black')
-        ax[4].set_title('workforce')
-        ax[5].set_title('budget')
         ax[2].set_title('weighted demand')
         ax[3].set_title('dyna_len')
+        ax[4].set_title('workforce')
+        ax[5].set_title('sales')
+        ax[6].set_title('budget')
         for i_class in self.industries:
             for industry in self.industries[i_class]:
                 print(industry.get_risk_factor())
@@ -73,10 +74,11 @@ class City:
                 data = industry.get_data()
                 ax[0].plot(data['demand'])
                 ax[1].plot(data['demand_exceed'],label=f'{industry.get_risk_factor()},{industry.get_dlength()}')
-                ax[4].plot(data['wf'])
-                ax[5].plot(data['budget'])
                 ax[2].plot(data['weighted_trend'])
                 ax[3].plot(data['dynamic_length'])
+                ax[4].plot(data['wf'])
+                ax[5].plot(data['sales'])
+                ax[6].plot(data['budget'])
 
         ax[1].legend()
         plt.show()

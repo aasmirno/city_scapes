@@ -19,7 +19,7 @@ class Industry:
     risk_factor = 1
 
     wage = 2
-    unit_price = 2
+    unit_price = 1.5
 
     tax_rate = 0
     budget = 0
@@ -66,13 +66,14 @@ class Industry:
 
     # dynamic weighted average favoring recency
     def d_wavg(self):
-        s_norm = 0.1
+        s_norm = 0
         if len(self.demand_hist) > 9:
             last_10 = self.demand_hist[0:10]
             s_norm = abs(statistics.stdev(last_10))
-        dynamic_length = self.demand_hist_length + int(10 / (s_norm * self.risk_factor))
+            
+        dynamic_length = self.demand_hist_length - int(10 * (s_norm / 100))
         if debug.DATA_MODE:
-            self.data['dynamic_length'].append(dynamic_length)
+            self.data['dynamic_length'].append(s_norm / 100)
             
         demand_adj = []
         for i in range(0, min(dynamic_length, len(self.demand_hist))):
@@ -105,7 +106,7 @@ class Industry:
             population.unemploy(gremlin_quota)
             return
 
-        if demand_trend < -100:  # demand based layoff
+        if demand_trend < -10:  # demand based layoff
             self.debug_log(f'demand based layoff')
             unemp = int(abs(expansion_requested) * self.risk_factor)
 
@@ -162,6 +163,7 @@ class Industry:
         if debug.DATA_MODE:
             self.data['demand'].append(demand)
             self.data['demand_exceed'].append(self.demand_exceed)
+            self.data['sales'].append(sale_raw)
 
         return demand - sale_raw
 
@@ -186,7 +188,7 @@ class Industry:
         self.global_id = global_id
         self.risk_factor = random.random()
         
-        self.demand_hist_length = 50
+        self.demand_hist_length = max(50 - int(50 * self.risk_factor), 10)
         
         self.active = True
         
@@ -197,5 +199,6 @@ class Industry:
                 'wf': [],
                 'budget' : [],
                 'weighted_trend' : [],
-                'dynamic_length' : []
+                'dynamic_length' : [],
+                'sales' : []
             }

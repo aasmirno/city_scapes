@@ -7,6 +7,8 @@ class Population:
     unemployed = 0
 
     demand_matrix = {}
+    demand_stability = 0
+
 
     def get_unemp(self):
             return self.unemployed
@@ -29,19 +31,34 @@ class Population:
         return info
 
     def get_demand(self):
-        demand_walk = random.gauss(mu=self.demand_matrix[0],sigma=0.1)
+        # artifical demand stability
+        if self.demand_stability == 0 and abs(random.gauss(mu = 0, sigma = 1)) > 1:
+            self.demand_stability = 20
+        
+        # base market variance
+        sigma = 0.05
+        # stable market variance
+        if self.demand_stability > 0:
+            sigma = 0.01
+        demand_walk = random.gauss(mu=self.demand_matrix[0],sigma=sigma)
         
         # cap limits
         if demand_walk > 1.0: demand_walk = 1.0
         if demand_walk < 0.0: demand_walk = 0.0
         
+        # apply walk
         for i_class in self.demand_matrix:
             self.demand_matrix[i_class] = abs(demand_walk)
+                
+                
+        if self.demand_stability > 0:
+                self.demand_stability -= 1
         return self.demand_matrix
 
     def __init__(self, seed):
         self.units = int(seed * random.random() * 1000) + 1000
         self.unemployed = self.units
+        self.demand_stability = 0       # artifical periods of stability
         self.demand_matrix = {
                 0 : 0.5,
                 1 : 0.2
