@@ -32,11 +32,11 @@ class Population:
 
     def get_demand(self):
         # artifical demand stability
-        if self.demand_stability == 0 and abs(random.gauss(mu = 0, sigma = 1)) > 1:
+        if self.demand_stability == 0 and abs(random.gauss(mu = 0, sigma = 1)) > 4:
             self.demand_stability = 20
         
         # base market variance
-        sigma = 0.05
+        sigma = debug.DEMAND_STOCH
         # stable market variance
         if self.demand_stability > 0:
             sigma = 0.01

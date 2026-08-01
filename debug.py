@@ -11,6 +11,6 @@ HDI_MIN = 0.1
     1: items
 '''
 DEMAND_CLASSES = [0,1]
-DEMAND_STOCH = 0.5      # demand stochasticity
+DEMAND_STOCH = 0.05      # demand stochasticity
 
 DATA_MODE = True

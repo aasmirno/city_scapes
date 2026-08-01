@@ -18,6 +18,24 @@ class City:
     infrastructure = []
     ext_connections = []
 
+    def info(self):
+        print(f'-------------------\nCity {self.id} - {self.seed}\npop {self.population.get_units()} - HDI {self.hdi}\nbudget {self.money}\n{self.industries}\n{self.ext_connections}\n------------------')
+        print(self.population.get_info())
+
+    def info_industry(self):
+        print(f'CITY {self.id} INDUSTRY DATA')
+        for i_class in self.industries:
+            for industry in self.industries[i_class]:
+                print(f'{industry.get_info()}')    
+
+    def num_industries(self):
+        count = 0
+        for i_class in self.industries:
+            for industry in self.industries[i_class]:
+                if industry.get_active():
+                    count += 1
+        return count
+
     def update(self):
         civ_demand = self.population.get_demand()
         print('SALE CYCLE')
@@ -36,23 +54,12 @@ class City:
                 if ind.get_active():
                     ind.tune(population = self.population)
         
-
     def add_industry(self, industry: Industry):
         i_class = industry.get_class()
         if i_class not in self.industries:
             self.industries[i_class] = [industry]
         else:
             self.industries[i_class].append(industry)
-
-    def info(self):
-        print(f'-------------------\nCity {self.id} - {self.seed}\npop {self.population.get_units()} - HDI {self.hdi}\nbudget {self.money}\n{self.industries}\n{self.ext_connections}\n------------------')
-        print(self.population.get_info())
-
-    def info_industry(self):
-        print(f'CITY {self.id} INDUSTRY DATA')
-        for i_class in self.industries:
-            for industry in self.industries[i_class]:
-                print(f'{industry.get_info()}')
 
     def show_data(self):
         if not debug.DATA_MODE:
@@ -63,10 +70,11 @@ class City:
         ax[1].set_title('demand_exceeded')
         ax[1].axhline(0, color='black')
         ax[2].set_title('weighted demand')
-        ax[3].set_title('dyna_len')
+        ax[2].axhline(0, color='black')
+        ax[3].set_title('s_norm')
         ax[4].set_title('workforce')
         ax[5].set_title('sales')
-        ax[6].set_title('budget')
+        ax[6].set_title('cap_rate')
         for i_class in self.industries:
             for industry in self.industries[i_class]:
                 print(industry.get_risk_factor())
@@ -94,11 +102,13 @@ class City:
         self.ex_conns = []
 
         self.hdi = max(self.seed * random.random() * (self.money / self.population.get_units()),0.01)
+        risk_factors = [0.1,0.5,0.9]
         for i in range(0,3):
             self.add_industry(
                 Industry(
                     hdi=0,
-                    cap_rate=3,
+                    cap_rate=0.8,
+                    risk_factor = risk_factors[i],
                     taxes=0.01,
                     pop_active=True,
                     demand_class=0,
@@ -117,7 +127,9 @@ def start_sim(num_cities):
         for city in cities:
             print(i)
             city.update()
-            #city.info_industry()
+            
+        if cities[0].num_industries() == 0:
+            break
 
     for city in cities:
         city.info()
