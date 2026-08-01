@@ -1,4 +1,5 @@
 import random
+import statistics
 
 import debug
 
@@ -18,17 +19,23 @@ class Industry:
     risk_factor = 1
 
     wage = 2
-    unit_price = 0.1
+    unit_price = 2
 
     tax_rate = 0
     budget = 0
 
     demand_exceed = 0
-    demand_hist_length = 5
+    demand_hist_length = 100
 
     pop_active = True
     desc = ''
 
+    def get_active(self):
+        return self.active
+    def get_risk_factor(self):
+        return self.risk_factor
+    def get_dlength(self):
+        return self.demand_hist_length
     def get_class(self):
         return self.demand_class
     def get_pop_active(self):
@@ -49,8 +56,7 @@ class Industry:
                    f'   BUDGET: {self.budget}\n'+
                    f'   R_factor: {self.risk_factor}, HIST_LEN: {self.demand_hist_length}\n'+
                    f'   EMPLOYED: {self.employment}'+
-                   f'   CAP: {self.employment * self.cap_rate}\n'+
-                   f'   {self.demand_hist}')
+                   f'   CAP: {self.employment * self.cap_rate}')
             return info
     
     def add_hist(self,demand):
@@ -58,18 +64,37 @@ class Industry:
         if len(self.demand_hist) > self.demand_hist_length:
             self.demand_hist.pop()
 
+    # dynamic weighted average favoring recency
     def d_wavg(self):
+        s_norm = 0.1
+        if len(self.demand_hist) > 9:
+            last_10 = self.demand_hist[0:10]
+            s_norm = abs(statistics.stdev(last_10))
+        dynamic_length = self.demand_hist_length + int(10 / (s_norm * self.risk_factor))
+        if debug.DATA_MODE:
+            self.data['dynamic_length'].append(dynamic_length)
+            
         demand_adj = []
-        for i in range(0,len(self.demand_hist)):
+        for i in range(0, min(dynamic_length, len(self.demand_hist))):
             demand_adj.append(self.demand_hist[i] * (1 / (i+1)**2))
-        return sum(demand_adj) / len(demand_adj)
+        return sum(demand_adj) / max(len(demand_adj),1)
+
+    def tune(self, population):
+        self.adjust(population)
+        if debug.DATA_MODE:
+            self.data['wf'].append(self.employment)
+            self.data['budget'].append(self.budget)
 
     def adjust(self, population):
         if self.budget < 0:
-            return 0
-
+            self.active = False
+            return
+            
         expansion_requested = int(self.demand_exceed / self.cap_rate)
+        # get weighted demand trend
         demand_trend = self.d_wavg()
+        if debug.DATA_MODE:
+            self.data['weighted_trend'].append(demand_trend)
         expense_eta = int(self.budget / max((self.wage * self.employment),1))
 
         self.debug_log(f'expansion_req: {expansion_requested}, demand_trend: {demand_trend}, expense_eta: {expense_eta}, budget: {self.budget}')
@@ -120,27 +145,30 @@ class Industry:
 
     def sale(self, demand):
         self.demand_exceed = int(demand - (self.employment * self.cap_rate))
-        self.debug_log(f'demand exceed {self.demand_exceed}, raw demand {demand}')
+        self.debug_log(f'demand diff {self.demand_exceed}, raw demand {demand}')
         self.add_hist(self.demand_exceed)
 
         # sell goods
         tax = 0
-
-        # raw sale number
-        sale_raw = min(demand,(self.employment * self.cap_rate))
-        # market adjusted sale
-        sale = sale_raw * self.unit_price
-        # sale tax
-        tax = sale * self.tax_rate
-        # profit
-        self.budget += sale - tax
+        sale_raw = min(demand,(self.employment * self.cap_rate))    # raw sale number
+        sale = sale_raw * self.unit_price                           # market adjusted sale
+        tax = sale * self.tax_rate                                  # sale tax
+        self.budget += sale - tax                                   # profit
         self.debug_log(f'sale {sale} tax {tax}')
 
         # subtract wage
         self.budget -= (self.wage * self.employment)
         self.debug_log(f'wages: {self.wage * self.employment}, final budget: {self.budget}')
+        if debug.DATA_MODE:
+            self.data['demand'].append(demand)
+            self.data['demand_exceed'].append(self.demand_exceed)
 
         return demand - sale_raw
+
+    def get_data(self):
+        if not debug.DATA_MODE:
+            return None
+        return self.data
 
     def __init__(self, hdi, cap_rate, taxes, pop_active, demand_class, global_id, desc):
         self.hdi_effect = hdi
@@ -157,4 +185,17 @@ class Industry:
         self.desc = desc
         self.global_id = global_id
         self.risk_factor = random.random()
-        self.demand_hist_length = 5 + int(5 * random.random())
+        
+        self.demand_hist_length = 50
+        
+        self.active = True
+        
+        if debug.DATA_MODE:
+            self.data = {
+                'demand' : [],
+                'demand_exceed' : [],
+                'wf': [],
+                'budget' : [],
+                'weighted_trend' : [],
+                'dynamic_length' : []
+            }

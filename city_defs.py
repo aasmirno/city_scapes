@@ -1,4 +1,8 @@
 import random
+import json
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 
 from population import Population
 from industry import Industry
@@ -24,12 +28,13 @@ class City:
                     civ_acc.append(industry)
             unmet = 0
             for industry in civ_acc:
-                unmet += industry.sale(civ_demand[i_class] * self.population.get_units() / len(civ_acc))
+                if industry.get_active():
+                    unmet += industry.sale(civ_demand[i_class] * self.population.get_units() / len(civ_acc))
         print('UPDATE CYCLE')
         for i_class in self.industries:
             for ind in self.industries[i_class]:
-                if (ind.adjust(population = self.population)) == 0:
-                    self.industries[i_class].remove(ind)
+                if ind.get_active():
+                    ind.tune(population = self.population)
         
 
     def add_industry(self, industry: Industry):
@@ -48,6 +53,33 @@ class City:
         for i_class in self.industries:
             for industry in self.industries[i_class]:
                 print(f'{industry.get_info()}')
+
+    def show_data(self):
+        if not debug.DATA_MODE:
+            print('ERROR data mode disabled')
+            return
+        fig, ax = plt.subplots(7)
+        ax[0].set_title('demand')
+        ax[1].set_title('demand_exceeded')
+        ax[1].axhline(0, color='black')
+        ax[4].set_title('workforce')
+        ax[5].set_title('budget')
+        ax[2].set_title('weighted demand')
+        ax[3].set_title('dyna_len')
+        for i_class in self.industries:
+            for industry in self.industries[i_class]:
+                print(industry.get_risk_factor())
+                
+                data = industry.get_data()
+                ax[0].plot(data['demand'])
+                ax[1].plot(data['demand_exceed'],label=f'{industry.get_risk_factor()},{industry.get_dlength()}')
+                ax[4].plot(data['wf'])
+                ax[5].plot(data['budget'])
+                ax[2].plot(data['weighted_trend'])
+                ax[3].plot(data['dynamic_length'])
+
+        ax[1].legend()
+        plt.show()
 
     def __init__(self, id):
         self.id = id
@@ -89,6 +121,10 @@ def start_sim(num_cities):
         city.info()
         city.info_industry()
         print()
+    
+    if debug.DATA_MODE:
+        for city in cities:
+            city.show_data()
 
 
 start_sim(1)
