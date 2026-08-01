@@ -145,9 +145,9 @@ class Industry:
         unemp = self.risk_factor * self.employment
         
         # adjust based on recent volatility
-        volatility = statistics.stdev(self.demand_hist[0:10]) * self.risk_factor
+        volatility = statistics.stdev(self.demand_hist[0:10]) / self.risk_factor
         
-        # less aggresive industries should contract faste with higher volatility
+        # less aggresive industries should contract faster with higher volatility
         
         unemp = max(int(unemp / volatility), 1)
         
