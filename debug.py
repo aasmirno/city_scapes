@@ -6,6 +6,10 @@ GREMLIN_RATE = 0.9
 # market collapse likelihood (std devs)
 MARKET_COLLAPSE_RATE = 3
 
+# defunct status
+DEFUNCT_PERIOD = 20
+
+
 HDI_MIN = 0.1
 
 ''' 

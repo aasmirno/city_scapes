@@ -104,7 +104,7 @@ class City:
                 
                 ax[5].plot(data['macd_long'][warmup_ignore:],color='red')
                 ax[5].plot(data['macd_short'][warmup_ignore:],color='green')
-                ax[5].plot(data['sales'][warmup_ignore:],color='blue')
+                #ax[5].plot(data['sales'][warmup_ignore:],color='blue')
 
                 
                 ax[6].plot(data['budget'][warmup_ignore:])
@@ -123,7 +123,7 @@ class City:
         self.ex_conns = []
 
         self.hdi = max(self.seed * random.random() * (self.money / self.population.get_units()),0.01)
-        risk_factors = [0.1, 0.9]
+        risk_factors = [0.1, 0.1]
         for i in range(0,len(risk_factors)):
             self.add_industry(
                 Industry(

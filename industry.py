@@ -1,5 +1,6 @@
 import random
 import statistics
+import math
 import math_extras
 
 import debug
@@ -91,7 +92,7 @@ class Industry:
     def d_wavg(self):
         # calculate recent volatility
         last_n = self.demand_hist[0:10]
-        if len(last_n) >= 2:
+        if len(last_n) >= 3:
             std = statistics.stdev(last_n)
             mean_recent = abs(statistics.mean(last_n))
         else:
@@ -99,9 +100,12 @@ class Industry:
             mean_recent = abs(last_n[0]) if last_n else 0.0
         
         # normalise volatility
-        norm_scale = std / (mean_recent + 1e-6)
-        reduction = int(5 * min(norm_scale, 1.0))
-        
+        if std > 2.0:
+            norm_scale = std / (mean_recent + 1e-6)
+            reduction = int(5 * min(norm_scale, 1.0))
+        else:
+            reduction = 0
+            
         # change weighted average length based on recent volatility
         dynamic_length = max(1, min(self.demand_hist_length - reduction, self.demand_hist_length))
         if debug.DATA_MODE:
@@ -160,38 +164,45 @@ class Industry:
             possible sale stores the theoretical perfect profit if production matched demand
             (demand exceeded * price per demand unit) - (theoretical wages)
         '''
-        possible_sale = (expansion * self.unit_price)
-        possible_cost = (int(expansion / self.cap_rate) * self.wage)
-        self.data['p_sale'].append(possible_sale - possible_cost)
-        
-        
-        profit = 1 
-        hires = 0
-        p_cost = 1
-        while profit > 0 and p_cost < self.budget:
-            hires += 1
-            p_sale = (hires * expansion * self.unit_price)
-            p_cost = (hires * self.wage * 3)
-            profit = p_sale - p_cost
-
-        if hires < 0:
-            self.debug_log(f"profit impossible under any conditions. profit {profit} hires {hires}")
-            return 
-        
-        # check avaliable local population
-        hires = min(population.get_unemp(),expansion)
-        if hires == 0:
-            self.debug_log('no workforce')
+        # error check
+        if expansion <= 0:
+            self.debug_log('no expansion demand')
             return
-        self.debug_log(f'd_pop {hires}')
-        
-        # check recent volatility
-        #volatility = statistics.stdev(self.demand_hist[0:10])
-        #expansion = expansion / volatility
-        
-        self.hire(int(expansion * self.risk_factor), population)
+
+        possible_sale = (expansion * self.unit_price)
+        # avoid division by zero for cap_rate
+        cap = max(self.cap_rate, 1e-6)
+        possible_cost = (int(expansion / cap) * self.wage)
+        if debug.DATA_MODE:
+            self.data['p_sale'].append(possible_sale - possible_cost)
+
+        # theoretical maximum to fulfill demand
+        max_workers = int(math.ceil(expansion / cap))
+
+        # available resources
+        budgeted_workers = int((self.budget * self.risk_factor) / max(self.wage, 1e-6))
+
+        # avaliable workforce
+        aval_workers = population.get_unemp()
+
+        # decide hires
+        hires = min(max_workers, aval_workers, budgeted_workers)
+
+        # apply risk_factor as a multiplier to hiring appetite
+        hires = int(max(0, hires))
+
+        self.debug_log(f'd_pop {hires} theoretical max {max_workers}, workforce avaliable {aval_workers}, afford {budgeted_workers}')
+        if hires <= 0:
+            if aval_workers == 0:
+                self.debug_log('no workforce')
+            else:
+                self.debug_log('cannot afford to hire')
+            return
+
+        # perform hires
+        self.hire(hires, population)
     
-    def demand_contract(self, population): 
+    def demand_contract(self, population):
         if self.employment == 0:
             return
         self.debug_log(f'demand based layoff')
@@ -207,14 +218,15 @@ class Industry:
         self.layoff(unemp, population)
 
     def adjust(self, population):
-        if self.budget < 1:
+        if self.budget < 1 or (len(self.sales_hist) > debug.DEFUNCT_PERIOD and sum(self.sales_hist[0:debug.DEFUNCT_PERIOD]) == 0):
             self.fail(population)
             return
-        
+         
         # set cap rate
-        quality = 1 / (max(self.last_layoff_quant,1) * max(self.last_layoff_time,1))
-        quality = max(quality, 0.1)
-        quality = min(quality, 1)
+        quality = 1
+        if self.last_layoff_time != None:
+            quality = 1 / (max(self.last_layoff_quant, 1) * max(self.last_layoff_time, 1))
+            quality = max(quality, 0.1)
         self.cap_rate = max(self.cap_rate_base * quality, 0.1)
         self.debug_log(f'cap_rate: {self.cap_rate} l_time: {self.last_layoff_time} l_q: {self.last_layoff_quant}')
         
@@ -230,7 +242,8 @@ class Industry:
         expense_eta = int(self.budget / max((self.wage * self.employment),1))
 
         # increase time from layoff
-        self.last_layoff_time += 1
+        if self.last_layoff_time != None:
+            self.last_layoff_time += 1
         self.debug_log(f'expansion_req: {self.demand_hist[0]}, demand_trend: {demand_trend}, expense_eta: {expense_eta}, sale_trend: {sale_trend} budget: {self.budget}, wf: {self.employment}')
         
         if debug.GREMLINS and random.random() > debug.GREMLIN_RATE: # noise for unmodelled events
@@ -277,7 +290,7 @@ class Industry:
             self.data['demand'].append(demand)
             self.data['demand_exceed'].append(self.demand_exceed)
             self.data['sales'].append(sale - tax - (self.wage * self.employment))
-        
+            self.data['p_sale'].append((self.demand_exceed * self.unit_price) - (int(self.demand_exceed / self.cap_rate) * self.wage))
         return demand - sale_raw
 
     def get_data(self):
@@ -290,7 +303,7 @@ class Industry:
         self.cap_rate_base = cap_rate
         self.cap_rate = cap_rate
         self.risk_rate = 1
-        self.last_layoff_time = 0
+        self.last_layoff_time = None
         self.last_layoff_quant = 0
 
         self.tax_rate = taxes
@@ -307,8 +320,8 @@ class Industry:
         
         # data history parameters
         self.demand_hist_length = max(debug.MAX_HIST - int(debug.MAX_HIST * self.risk_factor), 10)
-        self.demand_hist = [0] * self.demand_hist_length
-        self.sales_hist = [0] * self.max_sale_hist
+        self.demand_hist = [0]
+        self.sales_hist = [0]
         
         self.active = True
         
