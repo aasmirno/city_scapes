@@ -66,12 +66,12 @@ class City:
             print('ERROR data mode disabled')
             return
         
-        warmup_ignore = 10
+        warmup_ignore = 0
         fig, ax = plt.subplots(7)
         ax[0].set_title('demand + demand_exceeded')
         ax[0].axhline(0, color='black')
         
-        ax[1].set_title('empty')
+        ax[1].set_title('possible sale')
         ax[1].axhline(0, color='black')
         
         ax[2].set_title('weighted demand')
@@ -94,7 +94,7 @@ class City:
                 ax[0].plot(data['demand'][warmup_ignore:], color='green')
                 ax[0].plot(data['demand_exceed'][warmup_ignore:], color='red')
                 
-                #ax[1].plot(data['demand_exceed'][warmup_ignore:],label=f'{industry.get_risk_factor()},{industry.get_dlength()}')
+                ax[1].plot(data['p_sale'][warmup_ignore:],label=f'{industry.get_risk_factor()},{industry.get_dlength()}')
                 
                 ax[2].plot(data['weighted_trend'][warmup_ignore:])
                 
@@ -123,7 +123,7 @@ class City:
         self.ex_conns = []
 
         self.hdi = max(self.seed * random.random() * (self.money / self.population.get_units()),0.01)
-        risk_factors = [0.1]
+        risk_factors = [0.1, 0.9]
         for i in range(0,len(risk_factors)):
             self.add_industry(
                 Industry(
@@ -144,7 +144,7 @@ def start_sim(num_cities):
     for i in range(0,num_cities):
         cities.append(City(i))
 
-    for i in range(0, 1000):
+    for i in range(0, 500):
         for city in cities:
             print(i)
             city.update()

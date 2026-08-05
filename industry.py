@@ -76,8 +76,8 @@ class Industry:
 
     # basic moving average indicator
     def macd(self, data):
-        period_short = 10
-        period_long = 20
+        period_short = int(10 * self.risk_factor)
+        period_long = int(20 * self.risk_factor)
         
         m_short = sum(data[0:period_short]) / len(data[0:period_short])
         m_long = sum(data[0:period_long]) / len(data[0:period_long])
@@ -130,11 +130,14 @@ class Industry:
             self.data['wf'].append(self.employment)
 
     def layoff(self, amount, population):
+        # calculate percentage laid off
+        self.last_layoff_quant = amount / self.employment
+        
+        # remove from industry and return to workpool
         self.employment = self.employment - amount
         population.unemploy(amount)
         self.debug_log(f'fire {amount}')
         
-        self.last_layoff_quant = amount / self.employment
         self.last_layoff_time = 0
 
     def hire(self, amount, population):
@@ -150,31 +153,43 @@ class Industry:
         self.employment = 0
     
     # demand based expansion logic
+    #   population: stores city population metadata
+    #   expansion: demand units not captured (pop * demand matrix)
     def demand_expand(self, population, expansion):
-        self.debug_log(f'demand based expansion, d_max {expansion}')
+        '''
+            possible sale stores the theoretical perfect profit if production matched demand
+            (demand exceeded * price per demand unit) - (theoretical wages)
+        '''
+        possible_sale = (expansion * self.unit_price)
+        possible_cost = (int(expansion / self.cap_rate) * self.wage)
+        self.data['p_sale'].append(possible_sale - possible_cost)
+        
+        
+        profit = 1 
+        hires = 0
+        p_cost = 1
+        while profit > 0 and p_cost < self.budget:
+            hires += 1
+            p_sale = (hires * expansion * self.unit_price)
+            p_cost = (hires * self.wage * 3)
+            profit = p_sale - p_cost
 
+        if hires < 0:
+            self.debug_log(f"profit impossible under any conditions. profit {profit} hires {hires}")
+            return 
+        
         # check avaliable local population
-        expansion = min(population.get_unemp(),expansion)
-        if expansion == 0:
+        hires = min(population.get_unemp(),expansion)
+        if hires == 0:
             self.debug_log('no workforce')
             return
-        self.debug_log(f'd_pop {expansion}')
+        self.debug_log(f'd_pop {hires}')
         
         # check recent volatility
         #volatility = statistics.stdev(self.demand_hist[0:10])
         #expansion = expansion / volatility
         
-        # check industry budget
-        industry_price = self.budget * self.risk_factor
-        ideal_price = expansion * self.wage * 3
-        price = min(ideal_price, industry_price)
-        expansion = price / self.wage / 3
-        
-        if expansion == 0:
-            self.debug_log(f'no budget')
-            return
-        
-        self.hire(int(expansion), population)
+        self.hire(int(expansion * self.risk_factor), population)
     
     def demand_contract(self, population): 
         if self.employment == 0:
@@ -197,14 +212,12 @@ class Industry:
             return
         
         # set cap rate
-        quality = max(self.last_layoff_quant,0.01) / max(self.last_layoff_time,1)
+        quality = 1 / (max(self.last_layoff_quant,1) * max(self.last_layoff_time,1))
         quality = max(quality, 0.1)
         quality = min(quality, 1)
-        #self.cap_rate = self.cap_rate_base * quality
+        self.cap_rate = max(self.cap_rate_base * quality, 0.1)
         self.debug_log(f'cap_rate: {self.cap_rate} l_time: {self.last_layoff_time} l_q: {self.last_layoff_quant}')
         
-        # get perfect expansion
-        expansion_requested = int(self.demand_exceed / self.cap_rate)
         
         # get demand and sales trends
         demand_trend = self.d_wavg()
@@ -218,7 +231,7 @@ class Industry:
 
         # increase time from layoff
         self.last_layoff_time += 1
-        self.debug_log(f'expansion_req: {expansion_requested}, demand_trend: {demand_trend}, expense_eta: {expense_eta}, budget: {self.budget}, wf: {self.employment}')
+        self.debug_log(f'expansion_req: {self.demand_hist[0]}, demand_trend: {demand_trend}, expense_eta: {expense_eta}, sale_trend: {sale_trend} budget: {self.budget}, wf: {self.employment}')
         
         if debug.GREMLINS and random.random() > debug.GREMLIN_RATE: # noise for unmodelled events
             if self.employment == 0:
@@ -227,7 +240,8 @@ class Industry:
             self.debug_log(f'GREMLIN {gremlin_quota}')
             self.layoff(gremlin_quota, population)
             return
-        if demand_trend < -10:  # sales based layoff
+        
+        if sale_trend < 0:  # sales based layoff
             self.demand_contract(population)
             
         elif expense_eta < 2:   # expense based layoff
@@ -235,14 +249,13 @@ class Industry:
             unemp = int(0.9 * self.employment)
             self.layoff(unemp, population)
             
-        elif demand_trend > 10 and expansion_requested > 0: # demand based hire
-            self.demand_expand(population, expansion_requested)
+        elif demand_trend > 4 and self.demand_hist[0] > 0: # demand based hire
+            self.demand_expand(population, self.demand_hist[0])
         
 
     def sale(self, demand):
         self.demand_exceed = int(demand - (self.employment * self.cap_rate))
         self.debug_log(f'demand diff {self.demand_exceed}, raw demand {demand}')
-        self.add_hist(self.demand_exceed)
 
         # sell goods
         tax = 0
@@ -258,6 +271,7 @@ class Industry:
         self.debug_log(f'final budget: {self.budget}')
         
         # store profit figures
+        self.add_hist(self.demand_exceed)
         self.add_sales(sale - tax - (self.wage * self.employment))
         if debug.DATA_MODE:
             self.data['demand'].append(demand)
@@ -308,5 +322,6 @@ class Industry:
                 'dynamic_length' : [],
                 'sales' : [],
                 'macd_short' : [],
-                'macd_long' : []
+                'macd_long' : [],
+                'p_sale' : []
             }
