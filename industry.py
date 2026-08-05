@@ -1,5 +1,6 @@
 import random
 import statistics
+import math_extras
 
 import debug
 
@@ -27,8 +28,7 @@ class Industry:
     tax_rate = 0
     budget = 0
 
-    demand_exceed = 0
-    demand_hist_length = 100
+    max_sale_hist = 50
 
     pop_active = True
     desc = ''
@@ -64,26 +64,65 @@ class Industry:
                    )
             return info
     
+    def add_sales(self, sale):
+        self.sales_hist.insert(0, sale)
+        if len(self.sales_hist) > self.max_sale_hist:
+            self.sales_hist.pop()
+            
     def add_hist(self,demand):
         self.demand_hist.insert(0, demand)
         if len(self.demand_hist) > self.demand_hist_length:
             self.demand_hist.pop()
 
-    # dynamic weighted average
+    # basic moving average indicator
+    def macd(self, data):
+        period_short = 10
+        period_long = 20
+        
+        m_short = sum(data[0:period_short]) / len(data[0:period_short])
+        m_long = sum(data[0:period_long]) / len(data[0:period_long])
+        
+        self.data['macd_short'].append(m_short)
+        self.data['macd_long'].append(m_long)
+        
+        return m_short - m_long
+
+    # demand weighted average
     def d_wavg(self):
-        s_norm = 0
-        if len(self.demand_hist) > 9:
-            last_10 = self.demand_hist[0:10]
-            s_norm = abs(statistics.stdev(last_10))
-            
-        dynamic_length = self.demand_hist_length - int(10 * (s_norm / 100))
+        # calculate recent volatility
+        last_n = self.demand_hist[0:10]
+        if len(last_n) >= 2:
+            std = statistics.stdev(last_n)
+            mean_recent = abs(statistics.mean(last_n))
+        else:
+            std = 0.0
+            mean_recent = abs(last_n[0]) if last_n else 0.0
+        
+        # normalise volatility
+        norm_scale = std / (mean_recent + 1e-6)
+        reduction = int(5 * min(norm_scale, 1.0))
+        
+        # change weighted average length based on recent volatility
+        dynamic_length = max(1, min(self.demand_hist_length - reduction, self.demand_hist_length))
         if debug.DATA_MODE:
-            self.data['dynamic_length'].append(s_norm / 100)
-            
+            self.data['dynamic_length'].append(dynamic_length)
+        
+        if dynamic_length == 0:
+            return 0
+        
+        # create weighted average list
         demand_adj = []
+        weights = [((i + 1)) for i in range(0, min(dynamic_length, len(self.demand_hist)))]
         for i in range(0, min(dynamic_length, len(self.demand_hist))):
-            demand_adj.append(self.demand_hist[i] * (1 / (i+1)**2))
-        return sum(demand_adj) / max(len(demand_adj),1)
+            weighted_demand = self.demand_hist[i] / weights[i]
+            demand_adj.append(weighted_demand)
+        return sum(demand_adj) / sum(weights)
+
+    def sales_trend(self):
+        #recent_sales = [self.macd(self.sales_hist[i:i+10]) for i in range(0,10)]
+        #print(recent_sales)
+        return self.macd(self.sales_hist)
+        
 
     def tune(self, population):
         self.adjust(population)
@@ -122,8 +161,8 @@ class Industry:
         self.debug_log(f'd_pop {expansion}')
         
         # check recent volatility
-        volatility = statistics.stdev(self.demand_hist[0:10])
-        expansion = expansion / volatility
+        #volatility = statistics.stdev(self.demand_hist[0:10])
+        #expansion = expansion / volatility
         
         # check industry budget
         industry_price = self.budget * self.risk_factor
@@ -148,7 +187,6 @@ class Industry:
         volatility = statistics.stdev(self.demand_hist[0:10]) / self.risk_factor
         
         # less aggresive industries should contract faster with higher volatility
-        
         unemp = max(int(unemp / volatility), 1)
         
         self.layoff(unemp, population)
@@ -167,8 +205,10 @@ class Industry:
         
         # get perfect expansion
         expansion_requested = int(self.demand_exceed / self.cap_rate)
-        # get weighted demand trend
+        
+        # get demand and sales trends
         demand_trend = self.d_wavg()
+        sale_trend = self.sales_trend()
         if debug.DATA_MODE:
             self.data['budget'].append(self.budget)
             self.data['weighted_trend'].append(demand_trend)
@@ -187,8 +227,7 @@ class Industry:
             self.debug_log(f'GREMLIN {gremlin_quota}')
             self.layoff(gremlin_quota, population)
             return
-
-        if demand_trend < -10:  # demand based layoff
+        if demand_trend < -10:  # sales based layoff
             self.demand_contract(population)
             
         elif expense_eta < 2:   # expense based layoff
@@ -211,15 +250,20 @@ class Industry:
         sale = sale_raw * self.unit_price                           # market adjusted sale
         tax = sale * self.tax_rate                                  # sale tax
         self.budget += sale - tax                                   # profit
-        self.debug_log(f'sale {sale} tax {tax}')
+        self.debug_log(f'   sale {sale} tax {tax}')
 
         # subtract wage
         self.budget -= (self.wage * self.employment)
-        self.debug_log(f'wages: {self.wage * self.employment}, final budget: {self.budget}')
+        self.debug_log(f'   wages: {self.wage * self.employment}')
+        self.debug_log(f'final budget: {self.budget}')
+        
+        # store profit figures
+        self.add_sales(sale - tax - (self.wage * self.employment))
         if debug.DATA_MODE:
             self.data['demand'].append(demand)
             self.data['demand_exceed'].append(self.demand_exceed)
-            self.data['sales'].append(sale_raw)
+            self.data['sales'].append(sale - tax - (self.wage * self.employment))
+        
         return demand - sale_raw
 
     def get_data(self):
@@ -238,16 +282,19 @@ class Industry:
         self.tax_rate = taxes
         self.budget = 10 + (5 * random.random())
 
+        # population parameters
         self.pop_active = pop_active
         self.demand_class = demand_class
-        self.demand_hist = [0]
 
+        # meta parameters
         self.desc = desc
         self.global_id = global_id
         self.risk_factor = risk_factor
         
-        max_hist = 30
-        self.demand_hist_length = max(max_hist - int(max_hist * self.risk_factor), 10)
+        # data history parameters
+        self.demand_hist_length = max(debug.MAX_HIST - int(debug.MAX_HIST * self.risk_factor), 10)
+        self.demand_hist = [0] * self.demand_hist_length
+        self.sales_hist = [0] * self.max_sale_hist
         
         self.active = True
         
@@ -259,5 +306,7 @@ class Industry:
                 'budget' : [],
                 'weighted_trend' : [],
                 'dynamic_length' : [],
-                'sales' : []
+                'sales' : [],
+                'macd_short' : [],
+                'macd_long' : []
             }

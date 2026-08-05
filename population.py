@@ -32,8 +32,14 @@ class Population:
 
     def get_demand(self):
         # artifical demand stability
-        if self.demand_stability == 0 and abs(random.gauss(mu = 0, sigma = 1)) > 4:
+        if self.demand_stability == 0 and abs(random.gauss(mu = 0, sigma = 1)) > 3:
             self.demand_stability = 20
+        
+        # random market crash
+        if self.demand_stability == 0 and abs(random.gauss(mu = 0, sigma = 1)) > debug.MARKET_COLLAPSE_RATE:
+            self.demand_stability = 30
+            for i_class in self.demand_matrix:
+                self.demand_matrix[i_class] = 0.1
         
         # base market variance
         sigma = debug.DEMAND_STOCH

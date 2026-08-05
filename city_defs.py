@@ -65,28 +65,49 @@ class City:
         if not debug.DATA_MODE:
             print('ERROR data mode disabled')
             return
+        
+        warmup_ignore = 10
         fig, ax = plt.subplots(7)
-        ax[0].set_title('demand')
-        ax[1].set_title('demand_exceeded')
+        ax[0].set_title('demand + demand_exceeded')
+        ax[0].axhline(0, color='black')
+        
+        ax[1].set_title('empty')
         ax[1].axhline(0, color='black')
+        
         ax[2].set_title('weighted demand')
         ax[2].axhline(0, color='black')
-        ax[3].set_title('s_norm')
+        
+        ax[3].set_title('dynamic_length')
+        
         ax[4].set_title('workforce')
-        ax[5].set_title('sales')
-        ax[6].set_title('cap_rate')
+        
+        ax[5].set_title('sales_ema')
+        ax[5].axhline(0, color='black')
+        
+        ax[6].set_title('budget')
+        
         for i_class in self.industries:
             for industry in self.industries[i_class]:
                 print(industry.get_risk_factor())
                 
                 data = industry.get_data()
-                ax[0].plot(data['demand'])
-                ax[1].plot(data['demand_exceed'],label=f'{industry.get_risk_factor()},{industry.get_dlength()}')
-                ax[2].plot(data['weighted_trend'])
-                ax[3].plot(data['dynamic_length'])
-                ax[4].plot(data['wf'])
-                ax[5].plot(data['sales'])
-                ax[6].plot(data['budget'])
+                ax[0].plot(data['demand'][warmup_ignore:], color='green')
+                ax[0].plot(data['demand_exceed'][warmup_ignore:], color='red')
+                
+                #ax[1].plot(data['demand_exceed'][warmup_ignore:],label=f'{industry.get_risk_factor()},{industry.get_dlength()}')
+                
+                ax[2].plot(data['weighted_trend'][warmup_ignore:])
+                
+                ax[3].plot(data['dynamic_length'][warmup_ignore:])
+                
+                ax[4].plot(data['wf'][warmup_ignore:])
+                
+                ax[5].plot(data['macd_long'][warmup_ignore:],color='red')
+                ax[5].plot(data['macd_short'][warmup_ignore:],color='green')
+                ax[5].plot(data['sales'][warmup_ignore:],color='blue')
+
+                
+                ax[6].plot(data['budget'][warmup_ignore:])
 
         ax[1].legend()
         plt.show()
@@ -102,8 +123,8 @@ class City:
         self.ex_conns = []
 
         self.hdi = max(self.seed * random.random() * (self.money / self.population.get_units()),0.01)
-        risk_factors = [0.1,0.5,0.9]
-        for i in range(0,3):
+        risk_factors = [0.1]
+        for i in range(0,len(risk_factors)):
             self.add_industry(
                 Industry(
                     hdi=0,
@@ -123,7 +144,7 @@ def start_sim(num_cities):
     for i in range(0,num_cities):
         cities.append(City(i))
 
-    for i in range(0,500):
+    for i in range(0, 1000):
         for city in cities:
             print(i)
             city.update()
