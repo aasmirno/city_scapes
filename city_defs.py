@@ -66,10 +66,9 @@ class City:
             print('ERROR data mode disabled')
             return
         
-        warmup_ignore = 0
+        warmup_ignore = debug.WARMUP_PERIOD
         fig, ax = plt.subplots(7)
-        ax[0].set_title('demand + demand_exceeded')
-        ax[0].axhline(0, color='black')
+        ax[0].set_title('demand (demand units)')
         
         ax[1].set_title('possible sale')
         ax[1].axhline(0, color='black')
@@ -91,12 +90,12 @@ class City:
                 print(industry.get_risk_factor())
                 
                 data = industry.get_data()
-                ax[0].plot(data['demand'][warmup_ignore:], color='green')
-                ax[0].plot(data['demand_exceed'][warmup_ignore:], color='red')
+                ax[0].plot(data['demand'][warmup_ignore:], color='black')
                 
                 ax[1].plot(data['p_sale'][warmup_ignore:],label=f'{industry.get_risk_factor()},{industry.get_dlength()}')
                 
-                ax[2].plot(data['weighted_trend'][warmup_ignore:])
+                ax[2].plot(data['weighted_trend'][warmup_ignore:], color='blue')
+                ax[2].plot(data['demand_volatility'][warmup_ignore:], color='red')
                 
                 ax[3].plot(data['dynamic_length'][warmup_ignore:])
                 
@@ -123,13 +122,12 @@ class City:
         self.ex_conns = []
 
         self.hdi = max(self.seed * random.random() * (self.money / self.population.get_units()),0.01)
-        risk_factors = [0.1, 0.1]
-        for i in range(0,len(risk_factors)):
+        for i in range(0,len(debug.RISK_FACTORS)):
             self.add_industry(
                 Industry(
                     hdi=0,
                     cap_rate=0.8,
-                    risk_factor = risk_factors[i],
+                    risk_factor = debug.RISK_FACTORS[i],
                     taxes=0.01,
                     pop_active=True,
                     demand_class=0,
@@ -144,7 +142,7 @@ def start_sim(num_cities):
     for i in range(0,num_cities):
         cities.append(City(i))
 
-    for i in range(0, 500):
+    for i in range(0, debug.ITERATIONS):
         for city in cities:
             print(i)
             city.update()

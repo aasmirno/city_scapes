@@ -1,14 +1,20 @@
-IND_DEBUG = True
 
-GREMLINS = False
-GREMLIN_RATE = 0.9
 
-# market collapse likelihood (std devs)
-MARKET_COLLAPSE_RATE = 3
+'''
+    DEBUG / TESTING flags
+'''
+IND_DEBUG = True            # control logging
+MARKET_COLLAPSE_RATE = 3    # control likelihood of market collapse
+RISK_FACTORS = [0.1, 0.9]   # risk factors to test
+WARMUP_PERIOD = 10           # simulation data begin index
+ITERATIONS = 500             # simulation length
+DATA_MODE = True            # control data storage
 
+'''
+    parameters
+'''
 # defunct status
 DEFUNCT_PERIOD = 20
-
 
 HDI_MIN = 0.1
 
@@ -20,6 +26,7 @@ HDI_MIN = 0.1
 DEMAND_CLASSES = [0,1]
 DEMAND_STOCH = 0.05      # demand stochasticity
 
-MAX_HIST = 20
+GREMLINS = False
+GREMLIN_RATE = 0.9
 
-DATA_MODE = True
+MAX_HIST = 20

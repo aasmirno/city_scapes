@@ -77,8 +77,13 @@ class Industry:
 
     # basic moving average indicator
     def macd(self, data):
-        period_short = int(10 * self.risk_factor)
-        period_long = int(20 * self.risk_factor)
+        
+        period_short = 10 - int(5 * self.risk_factor)
+        period_long = 20 - int(5 * self.risk_factor)
+        if len(data) < period_long:
+            period_short = 2
+            period_long = 3
+        
         
         m_short = sum(data[0:period_short]) / len(data[0:period_short])
         m_long = sum(data[0:period_long]) / len(data[0:period_long])
@@ -181,8 +186,6 @@ class Industry:
         # avoid division by zero for cap_rate
         cap = max(self.cap_rate, 1e-6)
         possible_cost = (int(expansion / cap) * self.wage)
-        if debug.DATA_MODE:
-            self.data['p_sale'].append(possible_sale - possible_cost)
 
         # theoretical maximum to fulfill demand
         max_workers = int(math.ceil(expansion / cap))
@@ -190,7 +193,7 @@ class Industry:
         # available resources
         budgeted_workers = int((self.budget * self.risk_factor) / max(self.wage, 1e-6))
 
-        # avaliable workforce
+        # available workforce
         aval_workers = population.get_unemp()
 
         # decide hires
@@ -199,7 +202,7 @@ class Industry:
         # apply risk_factor as a multiplier to hiring appetite
         hires = int(max(0, hires))
 
-        self.debug_log(f'd_pop {hires} theoretical max {max_workers}, workforce avaliable {aval_workers}, afford {budgeted_workers}')
+        self.debug_log(f'd_pop {hires} theoretical max {max_workers}, workforce available {aval_workers}, afford {budgeted_workers}')
         if hires <= 0:
             if aval_workers == 0:
                 self.debug_log('no workforce')
@@ -210,19 +213,33 @@ class Industry:
         # perform hires
         self.hire(hires, population)
     
+    def recent_demand_volatility(self):
+        volatility_hist = 10
+        volatility = 0
+        #ignore volatility below 10 samples
+        if len(self.demand_hist) > volatility_hist:
+            mean = abs(statistics.mean(self.demand_hist[0:volatility_hist]))
+            volatility = statistics.stdev(self.demand_hist[0:volatility_hist] ) / mean
+        
+        # clamp volatility to 3
+        volatility = min(volatility, 3)
+        
+        # return factor
+        return volatility / 3
+    
     def demand_contract(self, population):
         if self.employment == 0:
             return
         self.debug_log(f'demand based layoff')
+       
+        volatility = self.recent_demand_volatility() 
+        self.debug_log(f'recent demand volatility {volatility}')
         # set layoff amount based on risk factor
-        unemp = self.risk_factor * self.employment
-        
-        # adjust based on recent volatility
-        volatility = statistics.stdev(self.demand_hist[0:10]) / self.risk_factor
-        
-        # less aggresive industries should contract faster with higher volatility
-        unemp = max(int(unemp / volatility), 1)
-        
+        unemp = self.employment * (volatility * self.risk_factor)
+
+
+        unemp = min(unemp, self.employment)
+        unemp = max(unemp, 1)
         self.layoff(unemp, population)
 
     def adjust(self, population):
@@ -235,16 +252,18 @@ class Industry:
         if self.last_layoff_time != None:
             quality = 1 / (max(self.last_layoff_quant, 1) * max(self.last_layoff_time, 1))
             quality = max(quality, 0.1)
-        self.cap_rate = max(self.cap_rate_base * quality, 0.1)
+        #self.cap_rate = max(self.cap_rate_base * quality, 0.1)
         self.debug_log(f'cap_rate: {self.cap_rate} l_time: {self.last_layoff_time} l_q: {self.last_layoff_quant}')
         
         
         # get demand and sales trends
         demand_trend = self.d_wavg()
         sale_trend = self.sales_trend()
+        demand_vol = self.recent_demand_volatility()
         if debug.DATA_MODE:
             self.data['budget'].append(self.budget)
             self.data['weighted_trend'].append(demand_trend)
+            self.data['demand_volatility'].append(demand_vol)
             
         # calculate current expenses against budget
         expense_eta = int(self.budget / max((self.wage * self.employment),1))
@@ -262,7 +281,7 @@ class Industry:
             self.layoff(gremlin_quota, population)
             return
         
-        if sale_trend < 0:  # sales based layoff
+        if sale_trend < 0 and demand_trend < 3 and self.employment != 0:  # market based layoff
             self.demand_contract(population)
             
         elif expense_eta < 2:   # expense based layoff
@@ -272,7 +291,6 @@ class Industry:
             
         elif demand_trend > 4 and self.demand_hist[0] > 0: # demand based hire
             self.demand_expand(population, self.demand_hist[0])
-        
 
     def sale(self, demand):
         self.debug_log(f'---------- SALE ----------')
@@ -287,24 +305,25 @@ class Industry:
         income = sale - tax                                         # profit
         self.budget += income                                   
         self.debug_log(f'raw sale units {sale_raw}, sale (currency) {sale}, tax {tax}')
-        
         self.debug_log(f'   Income')
         self.debug_log(f'       Sales {income}')
-
         # subtract expenses
         expenses = self.expenses()
         self.budget -= expenses
         self.debug_log(f'profit         {income - expenses}')
         self.debug_log(f'Final budget:  {self.budget}')
         
+        theoretical_sale = (self.demand_exceed * self.unit_price) - (self.wage * (self.demand_exceed / self.cap_rate))
+        self.debug_log(f'Perfect sale: {theoretical_sale}')
+        
         # store profit figures
         self.add_hist(self.demand_exceed)
-        self.add_sales(sale - tax - (self.wage * self.employment))
+        self.add_sales(theoretical_sale)
         if debug.DATA_MODE:
             self.data['demand'].append(demand)
             self.data['demand_exceed'].append(self.demand_exceed)
-            self.data['sales'].append(sale - tax - (self.wage * self.employment))
-            self.data['p_sale'].append((self.demand_exceed * self.unit_price) - (int(self.demand_exceed / self.cap_rate) * self.wage))
+            self.data['sales'].append(income - expenses)
+            self.data['p_sale'].append(theoretical_sale)
         return demand - sale_raw
 
     def get_data(self):
@@ -342,6 +361,7 @@ class Industry:
         if debug.DATA_MODE:
             self.data = {
                 'demand' : [],
+                'demand_volatility' : [],
                 'demand_exceed' : [],
                 'wf': [],
                 'budget' : [],
