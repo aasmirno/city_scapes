@@ -221,11 +221,12 @@ class Industry:
             mean = abs(statistics.mean(self.demand_hist[0:volatility_hist]))
             volatility = statistics.stdev(self.demand_hist[0:volatility_hist] ) / mean
         
-        # clamp volatility to 3
-        volatility = min(volatility, 3)
+        # clamp volatility to scale
+        max_vol = 4
+        volatility = min(volatility, max_vol)
         
         # return factor
-        return volatility / 3
+        return volatility / max_vol
     
     def demand_contract(self, population):
         if self.employment == 0:
@@ -246,15 +247,6 @@ class Industry:
         if self.budget < 1 or (len(self.sales_hist) > debug.DEFUNCT_PERIOD and sum(self.sales_hist[0:debug.DEFUNCT_PERIOD]) == 0):
             self.fail(population)
             return
-         
-        # set cap rate
-        quality = 1
-        if self.last_layoff_time != None:
-            quality = 1 / (max(self.last_layoff_quant, 1) * max(self.last_layoff_time, 1))
-            quality = max(quality, 0.1)
-        #self.cap_rate = max(self.cap_rate_base * quality, 0.1)
-        self.debug_log(f'cap_rate: {self.cap_rate} l_time: {self.last_layoff_time} l_q: {self.last_layoff_quant}')
-        
         
         # get demand and sales trends
         demand_trend = self.d_wavg()
@@ -352,7 +344,7 @@ class Industry:
         self.risk_factor = risk_factor
         
         # data history parameters
-        self.demand_hist_length = max(debug.MAX_HIST - int(debug.MAX_HIST * self.risk_factor), 10)
+        self.demand_hist_length = max(debug.MAX_HIST - int(debug.MAX_HIST * self.risk_factor), 15)
         self.demand_hist = [0]
         self.sales_hist = [0]
         
@@ -363,6 +355,7 @@ class Industry:
                 'demand' : [],
                 'demand_volatility' : [],
                 'demand_exceed' : [],
+                'hiring_indicator' : [],
                 'wf': [],
                 'budget' : [],
                 'weighted_trend' : [],

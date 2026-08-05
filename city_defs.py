@@ -94,8 +94,8 @@ class City:
                 
                 ax[1].plot(data['p_sale'][warmup_ignore:],label=f'{industry.get_risk_factor()},{industry.get_dlength()}')
                 
-                ax[2].plot(data['weighted_trend'][warmup_ignore:], color='blue')
-                ax[2].plot(data['demand_volatility'][warmup_ignore:], color='red')
+                #ax[2].plot(data['weighted_trend'][warmup_ignore:], color='blue')
+                ax[2].plot(data['demand_volatility'][warmup_ignore:])
                 
                 ax[3].plot(data['dynamic_length'][warmup_ignore:])
                 
