@@ -144,6 +144,14 @@ class Industry:
         
         self.last_layoff_time = 0
 
+    def expenses(self):
+        wages = self.employment * self.wage
+        
+        self.debug_log('    Expenses')
+        self.debug_log(f'        Wages: {wages}')
+        
+        return wages
+        
     def hire(self, amount, population):
         self.employment += amount
         population.employ(amount)
@@ -267,21 +275,27 @@ class Industry:
         
 
     def sale(self, demand):
+        self.debug_log(f'---------- SALE ----------')
         self.demand_exceed = int(demand - (self.employment * self.cap_rate))
-        self.debug_log(f'demand diff {self.demand_exceed}, raw demand {demand}')
+        self.debug_log(f'market demand {demand}, industry available {self.employment * self.cap_rate}, unmet demand {self.demand_exceed}')
 
         # sell goods
         tax = 0
         sale_raw = min(demand,(self.employment * self.cap_rate))    # raw sale number
         sale = sale_raw * self.unit_price                           # market adjusted sale
         tax = sale * self.tax_rate                                  # sale tax
-        self.budget += sale - tax                                   # profit
-        self.debug_log(f'   sale {sale} tax {tax}')
+        income = sale - tax                                         # profit
+        self.budget += income                                   
+        self.debug_log(f'raw sale units {sale_raw}, sale (currency) {sale}, tax {tax}')
+        
+        self.debug_log(f'   Income')
+        self.debug_log(f'       Sales {income}')
 
-        # subtract wage
-        self.budget -= (self.wage * self.employment)
-        self.debug_log(f'   wages: {self.wage * self.employment}')
-        self.debug_log(f'final budget: {self.budget}')
+        # subtract expenses
+        expenses = self.expenses()
+        self.budget -= expenses
+        self.debug_log(f'profit         {income - expenses}')
+        self.debug_log(f'Final budget:  {self.budget}')
         
         # store profit figures
         self.add_hist(self.demand_exceed)
