@@ -2,6 +2,24 @@ import random
 from industry import Industry
 import debug
 
+class PopUnit:
+    def getID(self): 
+        if self.initialised:
+            return self.id
+    def getEmployment(self): 
+        if self.initialised:
+            return self.hired
+    def setHired(self, status: bool):
+        if self.initialised:
+            self.hired = status
+    
+    
+    def __init__(self, id: int):
+        self.initialised = True
+        self.hired = False
+        self.id = id
+    
+
 class Population:
     units = 0
     unemployed = 0
@@ -19,6 +37,7 @@ class Population:
 
     def employ(self, amount):
         self.unemployed = self.unemployed - amount
+        
     def unemploy(self, amount):
         self.unemployed += amount
 
@@ -56,14 +75,18 @@ class Population:
         for i_class in self.demand_matrix:
             self.demand_matrix[i_class] = abs(demand_walk)
                 
-                
+        # artifical stability timer
         if self.demand_stability > 0:
                 self.demand_stability -= 1
         return self.demand_matrix
 
     def __init__(self, seed):
+        # pop init
         self.units = int(seed * random.random() * 1000) + 1000
         self.unemployed = self.units
+        
+        
+        # demand init
         self.demand_stability = 0       # artifical periods of stability
         self.demand_matrix = {
                 0 : 0.5,

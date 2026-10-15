@@ -19,14 +19,15 @@ class City:
     ext_connections = []
 
     def info(self):
-        print(f'-------------------\nCity {self.id} - {self.seed}\npop {self.population.get_units()} - HDI {self.hdi}\nbudget {self.money}\n{self.industries}\n{self.ext_connections}\n------------------')
+        print(f'-------------------\nCity {self.id} - {self.seed}\npop {self.population.get_units()} - HDI {self.hdi}\nbudget {self.city_budget}\n{self.industries}\n{self.ext_connections}\n------------------')
         print(self.population.get_info())
 
     def info_industry(self):
         print(f'CITY {self.id} INDUSTRY DATA')
         for i_class in self.industries:
             for industry in self.industries[i_class]:
-                print(f'{industry.get_info()}')    
+                if industry.get_active():
+                    print(f'{industry.get_info()}')    
 
     def num_industries(self):
         count = 0
@@ -38,7 +39,8 @@ class City:
 
     def update(self):
         civ_demand = self.population.get_demand()
-        print('SALE CYCLE')
+        #print('SALE CYCLE')
+        tax_income = 0
         for i_class in civ_demand:
             civ_acc = []
             for industry in self.industries[i_class]:
@@ -47,8 +49,13 @@ class City:
             unmet = 0
             for industry in civ_acc:
                 if industry.get_active():
-                    unmet += industry.sale(civ_demand[i_class] * self.population.get_units() / len(civ_acc))
-        print('UPDATE CYCLE')
+                    industry_income = industry.sale(civ_demand[i_class] * self.population.get_units() / len(civ_acc))
+                    unmet += industry_income[0]
+                    tax_income += industry_income[1]
+        self.city_budget += tax_income
+        self.city_data['tax_income'].append(tax_income)
+                    
+        #print('UPDATE CYCLE')
         for i_class in self.industries:
             for ind in self.industries[i_class]:
                 if ind.get_active():
@@ -67,46 +74,43 @@ class City:
             return
         
         warmup_ignore = debug.WARMUP_PERIOD
-        fig, ax = plt.subplots(7)
+        fig, ax = plt.subplots(8)
         ax[0].set_title('demand (demand units)')
         
-        ax[1].set_title('possible sale')
+        ax[1].set_title('hiring indicator')
         ax[1].axhline(0, color='black')
         
-        ax[2].set_title('weighted demand')
+        ax[2].set_title('sale trend')
         ax[2].axhline(0, color='black')
         
-        ax[3].set_title('dynamic_length')
+        ax[3].set_title('demand trend')
         
-        ax[4].set_title('workforce')
+        ax[4].set_title('demand volatility')
         
-        ax[5].set_title('sales_ema')
+        ax[5].set_title('workforce')
         ax[5].axhline(0, color='black')
         
         ax[6].set_title('budget')
+        ax[7].set_title('city tax income')
         
         for i_class in self.industries:
             for industry in self.industries[i_class]:
-                print(industry.get_risk_factor())
-                
                 data = industry.get_data()
                 ax[0].plot(data['demand'][warmup_ignore:], color='black')
                 
-                ax[1].plot(data['p_sale'][warmup_ignore:],label=f'{industry.get_risk_factor()},{industry.get_dlength()}')
+                ax[1].plot(data['hiring_indicator'][warmup_ignore:],label=f'{industry.get_risk_factor()},{industry.get_dlength()}')
                 
                 #ax[2].plot(data['weighted_trend'][warmup_ignore:], color='blue')
-                ax[2].plot(data['demand_volatility'][warmup_ignore:])
+                ax[2].plot(data['sale_trend'][warmup_ignore:])
                 
-                ax[3].plot(data['dynamic_length'][warmup_ignore:])
+                ax[3].plot(data['weighted_trend'][warmup_ignore:])
                 
-                ax[4].plot(data['wf'][warmup_ignore:])
+                ax[4].plot(data['demand_volatility'][warmup_ignore:])
                 
-                ax[5].plot(data['macd_long'][warmup_ignore:],color='red')
-                ax[5].plot(data['macd_short'][warmup_ignore:],color='green')
-                #ax[5].plot(data['sales'][warmup_ignore:],color='blue')
-
+                ax[5].plot(data['wf'][warmup_ignore:])
                 
                 ax[6].plot(data['budget'][warmup_ignore:])
+                ax[7].plot(self.city_data['tax_income'][warmup_ignore:])
 
         ax[1].legend()
         plt.show()
@@ -115,13 +119,16 @@ class City:
         self.id = id
         self.seed = random.random()
         
-        self.money = int(self.seed * random.random() * 10000)
+        self.city_budget = int(self.seed * random.random() * 10000)
         self.population = Population(self.seed)
 
+        self.city_data = {
+            'tax_income' : [] 
+        }
         self.industries = {0:[],1:[]}
         self.ex_conns = []
 
-        self.hdi = max(self.seed * random.random() * (self.money / self.population.get_units()),0.01)
+        self.hdi = max(self.seed * random.random() * (self.city_budget / self.population.get_units()),0.01)
         for i in range(0,len(debug.RISK_FACTORS)):
             self.add_industry(
                 Industry(
@@ -133,7 +140,6 @@ class City:
                     demand_class=0,
                     global_id=i,
                     desc=f'Grocer {i}'))
-        #self.info()
         self.info_industry()
 
 
@@ -142,17 +148,27 @@ def start_sim(num_cities):
     for i in range(0,num_cities):
         cities.append(City(i))
 
+    industries = 2
     for i in range(0, debug.ITERATIONS):
         for city in cities:
             print(i)
             city.update()
             
-        if cities[0].num_industries() == 0:
-            break
+        if cities[0].num_industries() < 3:
+            cities[0].add_industry(Industry(
+                                hdi=0,
+                                cap_rate=0.8,
+                                risk_factor = 0.5,
+                                taxes=0.1,
+                                pop_active=True,
+                                demand_class=0,
+                                global_id=i,
+                                desc=f'Grocer {industries}'))
+            industries += 1
 
     for city in cities:
-        city.info()
         city.info_industry()
+        city.info()
         print()
     
     if debug.DATA_MODE:

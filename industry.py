@@ -84,12 +84,12 @@ class Industry:
             period_short = 2
             period_long = 3
         
-        
         m_short = sum(data[0:period_short]) / len(data[0:period_short])
         m_long = sum(data[0:period_long]) / len(data[0:period_long])
         
-        self.data['macd_short'].append(m_short)
-        self.data['macd_long'].append(m_long)
+        if debug.DATA_MODE == True:
+            self.data['macd_short'].append(m_short)
+            self.data['macd_long'].append(m_long)
         
         return m_short - m_long
 
@@ -139,6 +139,8 @@ class Industry:
             self.data['wf'].append(self.employment)
 
     def layoff(self, amount, population):
+        if type(amount) != int:
+            raise ValueError('non integer layoff!')
         # calculate percentage laid off
         self.last_layoff_quant = amount / self.employment
         
@@ -158,6 +160,8 @@ class Industry:
         return wages
         
     def hire(self, amount, population):
+        if type(amount) != int:
+            raise ValueError('non integer employment!')
         self.employment += amount
         population.employ(amount)
         self.debug_log(f'hire {amount}')
@@ -219,10 +223,11 @@ class Industry:
         #ignore volatility below 10 samples
         if len(self.demand_hist) > volatility_hist:
             mean = abs(statistics.mean(self.demand_hist[0:volatility_hist]))
-            volatility = statistics.stdev(self.demand_hist[0:volatility_hist] ) / mean
+            if mean != 0:
+                volatility = statistics.stdev(self.demand_hist[0:volatility_hist] ) / mean
         
         # clamp volatility to scale
-        max_vol = 4
+        max_vol = 6
         volatility = min(volatility, max_vol)
         
         # return factor
@@ -236,7 +241,7 @@ class Industry:
         volatility = self.recent_demand_volatility() 
         self.debug_log(f'recent demand volatility {volatility}')
         # set layoff amount based on risk factor
-        unemp = self.employment * (volatility * self.risk_factor)
+        unemp = int(self.employment * (volatility * (1 - self.risk_factor)))
 
 
         unemp = min(unemp, self.employment)
@@ -244,7 +249,7 @@ class Industry:
         self.layoff(unemp, population)
 
     def adjust(self, population):
-        if self.budget < 1 or (len(self.sales_hist) > debug.DEFUNCT_PERIOD and sum(self.sales_hist[0:debug.DEFUNCT_PERIOD]) == 0):
+        if self.budget < 1 or (len(self.sales_hist) > debug.DEFUNCT_PERIOD and self.employment == 0):
             self.fail(population)
             return
         
@@ -252,10 +257,6 @@ class Industry:
         demand_trend = self.d_wavg()
         sale_trend = self.sales_trend()
         demand_vol = self.recent_demand_volatility()
-        if debug.DATA_MODE:
-            self.data['budget'].append(self.budget)
-            self.data['weighted_trend'].append(demand_trend)
-            self.data['demand_volatility'].append(demand_vol)
             
         # calculate current expenses against budget
         expense_eta = int(self.budget / max((self.wage * self.employment),1))
@@ -265,6 +266,26 @@ class Industry:
             self.last_layoff_time += 1
         self.debug_log(f'expansion_req: {self.demand_hist[0]}, demand_trend: {demand_trend}, expense_eta: {expense_eta}, sale_trend: {sale_trend} budget: {self.budget}, wf: {self.employment}')
         
+        
+        # UNITS
+        #   sale_trend : currency
+        #   demand_vol : unitless (standard dev)
+        #   expense_eta : iteration
+        hiring_indicator = (sale_trend + demand_trend) / max(demand_vol, 1e-6)
+        
+        # clamp and scale
+        indicator_clamp = 100
+        if hiring_indicator > 0: hiring_indicator = min(hiring_indicator, indicator_clamp)
+        if hiring_indicator < 0: hiring_indicator = max(hiring_indicator, -indicator_clamp)
+        hiring_indicator = hiring_indicator / indicator_clamp
+        
+        if debug.DATA_MODE:
+            self.data['budget'].append(self.budget)
+            self.data['weighted_trend'].append(demand_trend)
+            self.data['demand_volatility'].append(demand_vol)
+            self.data['sale_trend'].append(sale_trend)
+            self.data['hiring_indicator'].append(hiring_indicator)
+        
         if debug.GREMLINS and random.random() > debug.GREMLIN_RATE: # noise for unmodelled events
             if self.employment == 0:
                 return
@@ -273,7 +294,7 @@ class Industry:
             self.layoff(gremlin_quota, population)
             return
         
-        if sale_trend < 0 and demand_trend < 3 and self.employment != 0:  # market based layoff
+        if hiring_indicator < -0.5 and self.employment != 0:  # market based layoff
             self.demand_contract(population)
             
         elif expense_eta < 2:   # expense based layoff
@@ -281,7 +302,7 @@ class Industry:
             unemp = int(0.9 * self.employment)
             self.layoff(unemp, population)
             
-        elif demand_trend > 4 and self.demand_hist[0] > 0: # demand based hire
+        elif hiring_indicator > 0.5: # demand based hire
             self.demand_expand(population, self.demand_hist[0])
 
     def sale(self, demand):
@@ -309,14 +330,15 @@ class Industry:
         self.debug_log(f'Perfect sale: {theoretical_sale}')
         
         # store profit figures
-        self.add_hist(self.demand_exceed)
+        self.add_hist(demand)
         self.add_sales(theoretical_sale)
         if debug.DATA_MODE:
             self.data['demand'].append(demand)
             self.data['demand_exceed'].append(self.demand_exceed)
             self.data['sales'].append(income - expenses)
             self.data['p_sale'].append(theoretical_sale)
-        return demand - sale_raw
+            
+        return (demand - sale_raw, tax)
 
     def get_data(self):
         if not debug.DATA_MODE:
@@ -363,5 +385,6 @@ class Industry:
                 'sales' : [],
                 'macd_short' : [],
                 'macd_long' : [],
-                'p_sale' : []
+                'p_sale' : [],
+                'sale_trend' : []
             }
