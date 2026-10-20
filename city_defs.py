@@ -75,7 +75,7 @@ class City:
         
         warmup_ignore = debug.WARMUP_PERIOD
         fig, ax = plt.subplots(8)
-        ax[0].set_title('demand (demand units)')
+        ax[0].set_title('demand')
         
         ax[1].set_title('hiring indicator')
         ax[1].axhline(0, color='black')
@@ -93,10 +93,16 @@ class City:
         ax[6].set_title('budget')
         ax[7].set_title('city tax income')
         
+        # overall demand data
+        demand_history = self.population.demand_history()
+        classes = [c for c in demand_history[0]]
+        for cat in classes:
+            cat_data = [matrix[cat] for matrix in demand_history]
+            ax[0].plot(cat_data, label=f'demand class {cat}')
+
         for i_class in self.industries:
             for industry in self.industries[i_class]:
                 data = industry.get_data()
-                ax[0].plot(data['demand'][warmup_ignore:], color='black')
                 
                 ax[1].plot(data['hiring_indicator'][warmup_ignore:],label=f'{industry.get_risk_factor()},{industry.get_dlength()}')
                 
@@ -151,7 +157,7 @@ def start_sim(num_cities):
     industries = 2
     for i in range(0, debug.ITERATIONS):
         for city in cities:
-            print(i)
+            #print(i)
             city.update()
             
         if cities[0].num_industries() < 3:

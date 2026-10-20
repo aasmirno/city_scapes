@@ -29,8 +29,6 @@ class Industry:
     tax_rate = 0
     budget = 0
 
-    max_sale_hist = 50
-
     pop_active = True
     desc = ''
 
@@ -66,26 +64,38 @@ class Industry:
             return info
     
     def add_sales(self, sale):
+        '''
+            Add sale figure to historical data tracking
+        '''
         self.sales_hist.insert(0, sale)
-        if len(self.sales_hist) > self.max_sale_hist:
+        if len(self.sales_hist) > self.sale_hist_length:
             self.sales_hist.pop()
             
-    def add_hist(self,demand):
+    def add_demand(self,demand):
+        '''
+            Add demand figures to historical data
+        '''
         self.demand_hist.insert(0, demand)
         if len(self.demand_hist) > self.demand_hist_length:
             self.demand_hist.pop()
 
     # basic moving average indicator
     def macd(self, data):
+        '''
+            Internal MACD function, period defined by company risk factor
+        '''
+        period_adjustment = int(5 * self.risk_factor) # per company macd adjustment
+        period_short = 10 - period_adjustment         # short period
+        period_long = 20 - period_adjustment          # long period
         
-        period_short = 10 - int(5 * self.risk_factor)
-        period_long = 20 - int(5 * self.risk_factor)
-        if len(data) < period_long:
-            period_short = 2
-            period_long = 3
+        data_short = data[0:period_short]
+        data_long = data[0:period_long]
+        # sense checks
+        if len(data_short) == 0 or len(data_long) == 0: # no valid data
+            return 0
         
-        m_short = sum(data[0:period_short]) / len(data[0:period_short])
-        m_long = sum(data[0:period_long]) / len(data[0:period_long])
+        m_short = sum(data_short) / len(data_short)     # short avg
+        m_long = sum(data_long) / len(data_long)        # long avg
         
         if debug.DATA_MODE == True:
             self.data['macd_short'].append(m_short)
@@ -128,8 +138,9 @@ class Industry:
         return sum(demand_adj) / sum(weights)
 
     def sales_trend(self):
-        #recent_sales = [self.macd(self.sales_hist[i:i+10]) for i in range(0,10)]
-        #print(recent_sales)
+        '''
+            1 number sales trend analysis, based on macd diff
+        '''
         return self.macd(self.sales_hist)
         
 
@@ -330,7 +341,7 @@ class Industry:
         self.debug_log(f'Perfect sale: {theoretical_sale}')
         
         # store profit figures
-        self.add_hist(demand)
+        self.add_demand(demand)
         self.add_sales(theoretical_sale)
         if debug.DATA_MODE:
             self.data['demand'].append(demand)
@@ -363,12 +374,17 @@ class Industry:
         # meta parameters
         self.desc = desc
         self.global_id = global_id
+
+        if risk_factor < 0: risk_factor = 0
+        if risk_factor > 1: risk_factor = 1
         self.risk_factor = risk_factor
         
         # data history parameters
         self.demand_hist_length = max(debug.MAX_HIST - int(debug.MAX_HIST * self.risk_factor), 15)
+        self.sale_hist_length = 50
         self.demand_hist = [0]
         self.sales_hist = [0]
+
         
         self.active = True
         
