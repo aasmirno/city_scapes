@@ -1,10 +1,9 @@
-# Exponential moving average helper
+# Calculate an exponential moving average.
 def _ema(values, period):
-    """Compute EMA for a list of values.
-    Returns a list where entries before enough data are None, and thereafter the EMA values.
-    """
+    """Return an EMA series, using ``None`` before the initial average is available."""
     if period <= 0:
         raise ValueError('period must be > 0')
+
     n = len(values)
     if n == 0:
         return 0
@@ -12,19 +11,19 @@ def _ema(values, period):
     ema = [None] * n
     smoothing = 2 / (period + 1)
 
-    # seed with simple moving average when enough points exist
+    # Seed with a simple moving average when enough points are available.
     if n >= period:
-        seed = sum(values[0:period]) / period
-        ema[period-1] = seed
+        seed = sum(values[:period]) / period
+        ema[period - 1] = seed
         start = period
     else:
-        # not enough points to seed; use average of available as seed
+        # Otherwise, use the average of the available values.
         seed = sum(values) / n
-        ema[n-1] = seed
+        ema[n - 1] = seed
         start = n
 
-    # compute EMA forward
+    # Compute the remaining EMA values.
     for i in range(start, n):
-        ema[i] = (values[i] - ema[i-1]) * smoothing + ema[i-1]
+        ema[i] = (values[i] - ema[i - 1]) * smoothing + ema[i - 1]
 
-    return sum(values[0:period]) / len(values[0:period])
+    return sum(values[:period]) / len(values[:period])

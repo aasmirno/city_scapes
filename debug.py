@@ -1,30 +1,22 @@
 
-import random 
-'''
-    DEBUG / TESTING flags
-'''
-IND_DEBUG = False            # control logging
-MARKET_COLLAPSE_RATE = 5    # control likelihood of market collapse
-RISK_FACTORS = [random.random() for i in range(0,50)]   # risk factors to test
-WARMUP_PERIOD = 0           # simulation data begin index
-ITERATIONS = 100             # simulation length
-DATA_MODE = True            # control data storage
+"""Debug and simulation configuration."""
 
-'''
-    parameters
-'''
-# defunct status
+import random
+
+
+IND_DEBUG = False  # Control logging.
+MARKET_COLLAPSE_RATE = 5  # Control the likelihood of market collapse.
+RISK_FACTORS = [random.random() for _ in range(50)]  # Risk factors to test.
+WARMUP_PERIOD = 0  # Simulation data start index.
+ITERATIONS = 1000  # Simulation length.
+DATA_MODE = True  # Control data storage.
+
+# Defunct industry status.
 DEFUNCT_PERIOD = 20
 
-HDI_MIN = 0.1
-
-''' 
-    demand classes:
-    0: food
-    1: items
-'''
-DEMAND_CLASSES = [0,1]
-DEMAND_STOCH = 0.1      # demand stochasticity
+# Demand classes: 0 = food, 1 = items.
+DEMAND_CLASSES = [0, 1]
+DEMAND_STOCH = 0.1  # Demand stochasticity.
 
 GREMLINS = False
 GREMLIN_RATE = 0.9
