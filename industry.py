@@ -20,7 +20,7 @@ class Industry:
     last_layoff_quant = 0
     risk_factor = 1
 
-    wage = 0.2
+    wage = 10
     unit_price = 0.6
 
     tax_rate = 0
@@ -131,18 +131,17 @@ class Industry:
         if dynamic_length == 0:
             return 0
 
-        # Create the weighted-average list.
-        demand_adj = []
-        weights = [
-            i + 1 for i in range(min(dynamic_length, len(self.demand_hist)))
-        ]
-        for i in range(min(dynamic_length, len(self.demand_hist))):
-            weighted_demand = self.demand_hist[i] / weights[i]
-            demand_adj.append(weighted_demand)
-        return sum(demand_adj) / sum(weights)
+        # Weight recent observations more heavily and normalize by total weight.
+        sample_count = min(dynamic_length, len(self.demand_hist))
+        weights = range(sample_count, 0, -1)
+        weighted_demand = sum(
+            self.demand_hist[i] * weight
+            for i, weight in enumerate(weights)
+        )
+        return weighted_demand / sum(weights)
 
     def sales_trend(self):
-        """Return a one-number sales trend based on the MACD difference."""
+        """Return a one-number realized-profit trend based on the MACD difference."""
         return self.macd(self.sales_hist)
 
     def tune(self, population):
@@ -172,7 +171,6 @@ class Industry:
         wages = self.employment * self.wage
         for pop in self.employees:
             pop.net_worth += self.wage
-
 
         self.debug_log('    Expenses')
         self.debug_log(f'        Wages: {wages}')
@@ -215,8 +213,9 @@ class Industry:
         # Check the available workforce.
         aval_workers = population.unemployed
 
-        # Limit hiring by demand, available workers, and budget.
-        hires = min(max_workers, aval_workers, budgeted_workers)
+        # Limit each update to 10% of the current workforce, or one new worker.
+        hire_limit = max(1, math.ceil(self.employment * 0.1))
+        hires = min(max_workers, aval_workers, budgeted_workers, hire_limit)
 
         hires = int(max(0, hires))
 
@@ -310,10 +309,12 @@ class Industry:
             self.layoff(gremlin_quota, population)
             return
 
-        if hiring_indicator < -0.5 and self.employment != 0:
+        if self.employment != 0 and (
+            sale_trend < 0 or hiring_indicator < -0.5
+        ):
             self.demand_contract(population)
 
-        elif expense_eta < 2:
+        elif expense_eta < 2 and self.employment != 0:
             self.debug_log(f'expense based layoff')
             unemp = int(0.9 * self.employment)
             self.layoff(unemp, population)
@@ -321,14 +322,29 @@ class Industry:
         elif hiring_indicator > 0.5:
             self.demand_expand(population, self.demand_hist[0])
 
-    def sale(self, demand):
+    def sale(self, demand, consumers=None):
         self.debug_log(f'---------- SALE ----------')
         self.demand_exceed = int(demand - (self.employment * self.cap_rate))
         self.debug_log(f'market demand {demand}, industry available {self.employment * self.cap_rate}, unmet demand {self.demand_exceed}')
 
-        # Sell goods.
+        # Sell goods
         tax = 0
-        sale_raw = min(demand, (self.employment * self.cap_rate))
+        capacity = max(0, self.employment * self.cap_rate)
+        if consumers is None:
+            sale_raw = min(demand, capacity)
+        else:
+            sale_raw = 0
+            remaining_capacity = capacity
+            for consumer, requested in consumers:
+                if remaining_capacity <= 0:
+                    break
+                purchased = consumer.purchase(
+                    min(requested, remaining_capacity),
+                    self.unit_price,
+                )
+                sale_raw += purchased
+                remaining_capacity -= purchased
+
         sale = sale_raw * self.unit_price
         tax = sale * self.tax_rate
         income = sale - tax
@@ -348,13 +364,14 @@ class Industry:
         )
         self.debug_log(f'Perfect sale: {theoretical_sale}')
 
-        # Store profit figures.
+        # Store demand and realized profit for trend analysis.
         self.add_demand(demand)
-        self.add_sales(theoretical_sale)
+        self.add_sales(income - expenses)
         if debug.DATA_MODE:
             self.data['demand'].append(demand)
             self.data['demand_exceed'].append(self.demand_exceed)
-            self.data['sales'].append(income - expenses)
+            self.data['expenses'].append(expenses)
+            self.data['profit'].append(income - expenses)
             self.data['p_sale'].append(theoretical_sale)
 
         return demand - sale_raw, tax, sale_raw
@@ -373,7 +390,7 @@ class Industry:
         self.employees = []
 
         self.tax_rate = taxes
-        self.budget = 10 + (5 * random.random())
+        self.budget = 1000 + (500 * random.random())
 
         # Set population parameters.
         self.pop_active = pop_active
@@ -407,7 +424,8 @@ class Industry:
                 'budget': [],
                 'weighted_trend': [],
                 'dynamic_length': [],
-                'sales': [],
+                'expenses': [],
+                'profit': [],
                 'macd_short': [],
                 'macd_long': [],
                 'p_sale': [],

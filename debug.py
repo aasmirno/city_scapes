@@ -6,7 +6,7 @@ import random
 
 IND_DEBUG = False  # Control logging.
 MARKET_COLLAPSE_RATE = 5  # Control the likelihood of market collapse.
-RISK_FACTORS = [random.random() for _ in range(50)]  # Risk factors to test.
+RISK_FACTORS = [random.random() for _ in range(5)]  # Risk factors to test.
 WARMUP_PERIOD = 0  # Simulation data start index.
 ITERATIONS = 1000  # Simulation length.
 DATA_MODE = True  # Control data storage.

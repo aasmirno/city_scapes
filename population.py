@@ -18,6 +18,14 @@ class PopUnit:
         if self.initialised:
             self.hired = status
 
+    def purchase(self, quantity, unit_price):
+        if quantity <= 0 or unit_price <= 0 or self.net_worth <= 0:
+            return 0
+
+        purchased = min(quantity, self.net_worth / unit_price)
+        self.net_worth = max(0, self.net_worth - purchased * unit_price)
+        return purchased
+
     def update_demand(self, sigma=debug.DEMAND_STOCH):
         for i_class in self.demand_matrix:
             demand_walk = random.gauss(
@@ -51,6 +59,9 @@ class Population:
 
     def get_emp(self):
         return [unit for unit in self.units if unit.getEmployment()]
+
+    def get_total_wealth(self):
+        return sum(unit.net_worth for unit in self.units)
 
     def get_units(self):
         return self.num_units
@@ -88,7 +99,7 @@ class Population:
         self.unemployed_units.extend(units)
 
     def hist_data(self):
-        return [self.employ_hist, self.demand_hist]
+        return [self.employ_hist, self.demand_hist, self.wealth_hist]
 
     def get_info(self):
         info = (
@@ -126,7 +137,7 @@ class Population:
         # Store demand when data collection is enabled.
         if debug.DATA_MODE:
             self.demand_hist.append(copy.deepcopy(avg))
-            self.employ_hist.append(self.unemployed)
+            self.employ_hist.append(len(self.get_emp()))
         # Decrease the artificial stability timer.
         if self.demand_stability > 0:
             self.demand_stability -= 1
@@ -151,3 +162,4 @@ class Population:
         # data mode variables
         self.demand_hist = []  # Historical demand tracking.
         self.employ_hist = []   # Historical employment
+        self.wealth_hist = []  # Historical total population wealth.
