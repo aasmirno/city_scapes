@@ -270,57 +270,11 @@ class Industry:
             self.fail(population)
             return
 
-        # Get demand and sales trends.
-        demand_trend = self.d_wavg()
-        sale_trend = self.sales_trend()
-        demand_vol = self.recent_demand_volatility()
+        # use LP to maximise the objective funtction
+        estimated_demand = 100
+        estimated_demand * (self.unit_price + a_price) - ((self.wage + a_wage) * (self.employed + a_labor))
+        
 
-        # Estimate how many iterations the budget can cover current wages.
-        expense_eta = int(self.budget / max((self.wage * self.employment), 1))
-
-        # Increase the time since the last layoff.
-        if self.last_layoff_time is not None:
-            self.last_layoff_time += 1
-        self.debug_log(f'expansion_req: {self.demand_hist[0]}, demand_trend: {demand_trend}, expense_eta: {expense_eta}, sale_trend: {sale_trend} budget: {self.budget}, wf: {self.employment}')
-
-        # sale_trend is currency; demand_vol is unitless; expense_eta is iterations.
-        hiring_indicator = (sale_trend + demand_trend) / max(demand_vol, 1e-6)
-
-        # Clamp and scale the hiring indicator.
-        indicator_clamp = 100
-        if hiring_indicator > 0:
-            hiring_indicator = min(hiring_indicator, indicator_clamp)
-        if hiring_indicator < 0:
-            hiring_indicator = max(hiring_indicator, -indicator_clamp)
-        hiring_indicator = hiring_indicator / indicator_clamp
-
-        if debug.DATA_MODE:
-            self.data['budget'].append(self.budget)
-            self.data['weighted_trend'].append(demand_trend)
-            self.data['demand_volatility'].append(demand_vol)
-            self.data['sale_trend'].append(sale_trend)
-            self.data['hiring_indicator'].append(hiring_indicator)
-
-        if debug.GREMLINS and random.random() > debug.GREMLIN_RATE:
-            if self.employment == 0:
-                return
-            gremlin_quota = int((self.employment * random.random() * 0.1))
-            self.debug_log(f'GREMLIN {gremlin_quota}')
-            self.layoff(gremlin_quota, population)
-            return
-
-        if self.employment != 0 and (
-            sale_trend < 0 or hiring_indicator < -0.5
-        ):
-            self.demand_contract(population)
-
-        elif expense_eta < 2 and self.employment != 0:
-            self.debug_log(f'expense based layoff')
-            unemp = int(0.9 * self.employment)
-            self.layoff(unemp, population)
-
-        elif hiring_indicator > 0.5:
-            self.demand_expand(population, self.demand_hist[0])
 
     def sale(self, demand, consumers=None):
         self.debug_log(f'---------- SALE ----------')
@@ -329,7 +283,7 @@ class Industry:
 
         # Sell goods
         tax = 0
-        capacity = max(0, self.employment * self.cap_rate)
+        capacity = self.employment * self.cap_rate
         if consumers is None:
             sale_raw = min(demand, capacity)
         else:
@@ -383,7 +337,7 @@ class Industry:
 
     def __init__(self, risk_factor, cap_rate, taxes, pop_active, demand_class, global_id, desc):
         self.cap_rate_base = cap_rate
-        self.cap_rate = cap_rate
+        self.cap_rate = 2.0
         self.risk_rate = 1
         self.last_layoff_time = None
         self.last_layoff_quant = 0
