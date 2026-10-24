@@ -8,7 +8,7 @@ Agents are individual actors with economic goals which have a set of restrained 
 
 Firms represent industrial concerns which work to maximise profit in their avaliable market. Each firm is capable of producing some amount of supply units for each possible supply category. The upper limit of supply for a firm is dictated by the capacity coefficent of each firm multiplied by the labor force employed by the firm:
 
-$$T_S = c_S*L$$
+$$T_S = lc_S$$
 
 Where $L$ is the number of employees and $c_S$ is the capacity per supply category S.
 
@@ -18,7 +18,7 @@ $$P = (\sum_0^S{\sigma_S\mu_St_S}) - (wL)$$
 
 where $\sigma_S$ is the units sold in the cycle, $\mu_S$ is the unit price, $t_S$ is the inverse of the tax rate, $w$ is the wage per employee, and $L$ is the number of employees.
 
-The firm will then whether or no to make adjustments, which are categorised as follows:
+The firm will then adjust internal variables in order to maximise profit:
 
 #### __Adjustment__
 
@@ -28,33 +28,12 @@ The firm will then whether or no to make adjustments, which are categorised as f
 
 A firm can choose to enact any combination of changes, subject to dynamic constraints (ie, labor laws, fixed pricing, etc.) In order to estimate future profit, the quantity of future sales needs to be estimated.
 
-The problem then becomes how to analyse the expected changes in profit based on changes in levers. Looking at the formula for profit:
+Assuming limited demand $d_s$ and a maximal price $\tau_S$ that a population is willing to pay, the maximum profit is obtained by matching the productivity of the firm $lc_S$ to the demand $d_S$ and matching the unit price of the firm $\mu_S$ to $\tau_S$.
 
-$$P = (\sum_0^S{\sigma_S^*\mu_St_S}) - (wL)$$
+Since the optimal price $\tau_S$ is unknown to a firm, it must estimate $\tau_S$ with the estimator $\tau_S^*$. The method of estimation is discussed in a later section. In order to achieve optimal labor costs, the firm must have some target profit margin and manage labor and wages such that the profit margin is met. Since $\tau_S^*$ is known at this stage, the cost of increasing or decreasing labor can found from the profit function:
 
-We can see that in order to account for the adjustment costs of changing labor, we need to express $\sigma_S$ as a factor of $L$. Therefore we can state the perfect profit formula:
+$$P = \tau_S$$
 
-$$\sigma_S^* \le c_SL$$
-
-$$P \le L(\sum_0^S{c_S\mu_St_S}) - wL$$
-
-This follows from the first formula for the upper limit of supply.
-
-Likewise, the cost of increasing the unit price $\mu_S$ needs to be present on the expense side of the formula. This unit price cost can be expressed with the term:
-
-$$\mu_S - \tau_S$$
-
-Which represents the opportunity cost of a different price, ie the sales which were not made due to the current unit price. This potential revenue term can be estimated based on a number of approaches, in this model, the average income of the target population is used to estimate the price that a target population is willing to pay, represented by $\tau_S$. The profit formula becomes:
-
-$$P \le L(\sum_0^S{c_S\mu_St_S}) - wL - \sum_0^S(\mu_S-\tau_S)$$
-
-Partial Derivatives:
-
-$$\frac{dP}{dL} = \sum_0^S{c_S\mu_St_S}$$
-
-$$\frac{dP}{d\mu} = L\sum_0^S{c_St_S} - \tau_S$$
-
-$$\frac{dP}{dw} = L$$
 
 #### __Avoiding the simple case__
 
