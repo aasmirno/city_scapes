@@ -1,29 +1,20 @@
-# Calculate an exponential moving average.
-def _ema(values, period):
-    """Return an EMA series, using ``None`` before the initial average is available."""
-    if period <= 0:
-        raise ValueError('period must be > 0')
+import random
 
-    n = len(values)
-    if n == 0:
-        return 0
-
-    ema = [None] * n
-    smoothing = 2 / (period + 1)
-
-    # Seed with a simple moving average when enough points are available.
-    if n >= period:
-        seed = sum(values[:period]) / period
-        ema[period - 1] = seed
-        start = period
-    else:
-        # Otherwise, use the average of the available values.
-        seed = sum(values) / n
-        ema[n - 1] = seed
-        start = n
-
-    # Compute the remaining EMA values.
-    for i in range(start, n):
-        ema[i] = (values[i] - ema[i - 1]) * smoothing + ema[i - 1]
-
-    return sum(values[:period]) / len(values[:period])
+class DemandGenerator:
+    '''
+        Generate random walks for N categories
+    '''
+    
+    def get_next(self):
+        """
+            Get the next set of random walk values
+        """
+        self.values = [random.gauss(mu = value, sigma = var) for value,var in zip(self.values, self.variances)]
+        return self.values
+    
+    def __init__(self, types: int, starting_means: list, starting_variances:  list):
+        if len(starting_means) != types or len(starting_variances) != types:
+            raise ValueError("mismatched means or variances")
+        self.n = types
+        self.values = starting_means
+        self.variances = starting_variances

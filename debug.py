@@ -16,6 +16,7 @@ DEFUNCT_PERIOD = 20
 
 # Demand classes: 0 = food, 1 = items.
 DEMAND_CLASSES = [0, 1]
+DEMAND_CLASSES_N = len(DEMAND_CLASSES)
 DEMAND_STOCH = 0.1  # Demand stochasticity.
 
 GREMLINS = False
