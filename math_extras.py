@@ -9,7 +9,7 @@ class DemandGenerator:
         """
             Get the next set of random walk values
         """
-        self.values = [random.gauss(mu = value, sigma = var) for value,var in zip(self.values, self.variances)]
+        self.values = [max(random.gauss(mu = value, sigma = var),0) for value,var in zip(self.values, self.variances)]
         return self.values
     
     def __init__(self, types: int, starting_means: list, starting_variances:  list):
