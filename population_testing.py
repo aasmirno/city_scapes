@@ -47,7 +47,13 @@ def graph_population_data(test_pop):
 test_pop = population.Population()
 
 for i in range(0,200):
-    test_pop.get_orders()
+    orders = test_pop.get_orders()
+    
+    test_pop.fill(orders)
+    
+    test_pop.pay([(id, 5) for id in range(test_pop.total_pop)])
+        
+    
 
 graph_population_data(test_pop)
 

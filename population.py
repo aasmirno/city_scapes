@@ -24,17 +24,31 @@ class PopUnit:
         '''
             Generate order to purchase supply
         '''
-        demand_matrix = self.demand.get_next()
-        
-        order = []
-        return demand_matrix
+        order = [(demand, self.net_worth / 10, self.id) for demand in self.demand_matrix]
+        self.order = order
+        return order
 
+
+    def order_return(self, order_filled: list):
+        fullfilment = [np.divide(filled,order) for order,filled in zip(self.order, order_filled)]
+        for i in range(debug.DEMAND_CLASSES_N):
+            fill_ratio = fullfilment[i][0]
+            
+            # filled orders decrease demand
+            if fill_ratio > 0.5:
+                self.demand_matrix[i] = max(1e-6, self.demand_matrix[i] - fill_ratio * 0.01)
+             
+            # subtract price
+            self.net_worth = max(0, self.net_worth - order_filled[i][1])   
+        
+        #print(fullfilment)
 
     def __init__(self, id: int):
         self.demand = DemandGenerator(types=debug.DEMAND_CLASSES_N,
                       starting_means=[0.5 for i in range(0,debug.DEMAND_CLASSES_N)],
                       starting_variances=[0.05 for i in range(0,debug.DEMAND_CLASSES_N)],
                       distrib='gauss')
+        self.demand_matrix = [0.5 for i in range(debug.DEMAND_CLASSES_N)]
         
         self.net_worth = random.random() * 100
         self.initialised = True
@@ -67,11 +81,31 @@ class Population:
     def get_orders(self) -> list:
         orders = [unit.get_order() for unit in self.units]
         
+        order_sum = np.sum(orders,axis=0)
         if debug.DATA_MODE:
-            self.data.setdefault('avg_order',[]).append(np.sum(orders,axis=0) / self.total_pop)
+            self.data.setdefault('avg_order',[]).append([order[0] / self.total_pop for order in order_sum])
+            self.data.setdefault('avg_price',[]).append([order[1] / self.total_pop for order in order_sum])
             self.data.setdefault('income',[]).append(self.income)
         
         return orders
+
+    def fill(self, orders_filled: list):
+        for order in orders_filled:
+            id = order[0][2]
+            
+            if id < 0 or id >= self.total_pop:
+                raise ValueError(f"Invalid id {id}")
+            
+            self.units[id].order_return(order)
+
+    def pay(self, amount: list):
+        '''
+            Pay pop units using list (id, payment)
+        '''
+        
+        for value in amount:
+            self.units[value[0]].net_worth += value[1]
+
 
     def __init__(self):
         # Initialize the population.

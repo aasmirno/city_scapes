@@ -55,27 +55,20 @@ $$\frac{dP}{dL} = \sum_0^S{\alpha_Sc_S\mu_St_S} - w$$
 
 When demand is greater than supply.
 
-This means that the utility gained in firing a worker is equal to the wage that is paid to the worker if supply outstrips demand, and is equal to the potential income of hiring a worker minus the wage that is paid.
-
-
-To create a labor indicator, first the demand ratio is defined as:
-
-$$r_S(l,\alpha,\sigma) = \frac{\sigma_S}{l_Sc_S}$$
-
-This ratio defines the amount of fullfiled demand for each supply category, a one number summary is created by averaging across categories. Since $\sigma_S \le l_Sc_S$ it follows $0 \lt r \le 1$. In order to smooth hire and layoff actions firms will only trigger such an action when the ratio reaches some internal level which is specific to each firm.
-
-The ratio of demand can be used to analyse the profit attainable. Given the maximum income formula:
-
-$$I_S = l_Sc_S\mu_St_S$$
-
-We can multiply $I_S$ by $r_S$ to find actual income $I^*_S$:
-
-$$I^*_S = l_Sc_S\mu_St_S * \frac{\sigma_S}{l_Sc_S}$$
-
-Therefore in the case that demand outstrips labor (when $r_S = 1$ ), the profit that a firm is able to make in a category is equal to:
-
-$$l_Sc_S\mu_St_S - \frac{1}{n}wl$$ where
+This means that the utility gained in firing a worker is equal to the wage that is paid to the worker if supply outstrips demand, and is equal to the potential income of hiring a worker minus the wage that is paid. Demand is estimated using the methods discussed later.
 
 ##### __Price__
 
 Assuming limited demand $d_s$ and a maximal price $\Mu_S$ that a population is willing to pay, the maximum profit is obtained by matching the productivity of the firm $lc_S$ to the demand $d_S$ and matching the unit price of the firm $\mu_S$ to $\Mu_S$. Since the optimal price $\Mu_S$ is unknown to a firm, it must estimate $\Mu_S$ with the estimator $\mu_S^*$. The method of estimation is discussed in a later section.
+
+### __Consumer__
+
+A consumer is a market participant and generator of demand. Each consumer has a set of demands for each supply category and an avaliable money supply with which to try and fulfil the demand. Every market cycle, each consumer participating in the market will generate an order, which will contain the number of units demanded and the maximum price which a consumer if willing to pay. The form looks as follows:
+
+$$D_S = (units, price_{max})$$
+
+The market will then attempt to fulfill the orders according to market rules.
+
+#### __Demand__
+
+Consumer demand will be affected by 
