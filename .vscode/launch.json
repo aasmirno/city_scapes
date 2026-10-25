@@ -12,6 +12,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "pop testing",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "population_testing.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "city_defs debugging",
             "type": "debugpy",
             "request": "launch",

@@ -182,6 +182,9 @@ income_generator = DemandGenerator(types=1,
                       starting_means=[10000],
                       starting_variances=[1000])
 
+# population size
+pop_size = 500
+
 # create industries
 for i in range(0, industries):
     ind_list.append(Industry(id=i, risk_factor=0.5, specialisation_param=spec_params[i]))
@@ -191,6 +194,8 @@ demand_history = []
 income_history = []
 for i in range(0,iterations):
     demand = [100 * cat for cat in demand_generator.get_next()]
+    
+    
     demand_history.append(demand)
     supply = [(ind.produce(), ind.unit_price) for ind in ind_list]
     sales = assign_demand(demand, supply)
