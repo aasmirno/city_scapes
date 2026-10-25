@@ -4,7 +4,7 @@
 import random
 
 
-IND_DEBUG = False  # Control logging.
+IND_DEBUG = True  # Control logging.
 MARKET_COLLAPSE_RATE = 5  # Control the likelihood of market collapse.
 RISK_FACTORS = [random.random() for _ in range(5)]  # Risk factors to test.
 WARMUP_PERIOD = 0  # Simulation data start index.

@@ -34,6 +34,14 @@ class Industry:
     def wage(self, value):
         self.wages = value
 
+    def debug_log(self, msg: str) -> None:
+        '''
+            Print msg to console
+        '''
+        if debug.IND_DEBUG:
+            print(f'Industry {self.id}: {msg}')
+            
+
     def get_data(self):
         '''
             Get internal testing data
@@ -74,12 +82,15 @@ class Industry:
         """
             Return supply unit created by this firm
         """
-        return [capacity * self.labor for capacity in self.capacity] 
+        return [self.labor * l_coeff * capacity for capacity,l_coeff in zip(self.capacity, self.labor_coeff)] 
         
     def sell(self, units_sold: list, tax_rate: list):
         '''
             Calculate income based on units sold
         '''
+        # store current tax rate
+        self.tax_rate = tax_rate
+        
         # calculate profit
         total_income = sum([ units * tax * price for units,tax,price in zip(units_sold, tax_rate, self.unit_price)])
         total_expenses = self.wage * self.labor
@@ -90,45 +101,59 @@ class Industry:
         # add sales to sale history
         self.add_sales_figures(sales=units_sold)
         
+        # calculate demand ratio
+        production = self.produce()
+        self.demand_ratio = [demand / max(supply, 1e-6) for supply, demand in zip(production, units_sold)]
+        
         if debug.DATA_MODE:
-            self.data['income'].append(total_income)
-            self.data['expense'].append(total_expenses)
+            self.data['fundamentals'].append([total_income, total_expenses])
+            self.data['budget'].append(self.budget)
+            self.data['profit'].append(profit)
             self.data['units_sold'].append(units_sold)
+            self.data['demand_ratio'].append(self.demand_ratio)
+    
+    def update_labor_coeff(self):
+        # calculate optimal coefficents
+        gradient = [max(self.labor * cap, sales) * price for cap,price,sales in zip(self.capacity,self.unit_price, self.sales_history[0])]
+        gradient = [g / max(sum(gradient),1e-6) for g in gradient]
+        
+        # apply step adjustment
+        diff = [(g - cur) / self.spec_param for cur,g in zip(self.labor_coeff, gradient)]
+        self.labor_coeff = [coeff + adj for coeff,adj in zip(self.labor_coeff,diff)]
+    
+        if debug.DATA_MODE:
+            self.data.setdefault('labor_coeff', []).append(self.labor_coeff)
     
     
-    def adjust(self, tax_rate: list, estimated_price: list):
+    def adjust(self, estimated_price: list):
         '''
             Make adjustments to company
         '''
-        expected_sale_diff = 0.1
-        expected_sales = [expected_sale_diff + sale for sale in self.sales_history[0]]
+        # adjust price
+        self.unit_price = estimated_price
         
-        # partial derivatives for profit formula
-        unit_price_profit = sum([sale * tax for sale,tax in zip(expected_sales, tax_rate)])
         
-        labor_profit = sum([cap * price * tax for cap,price,tax in zip(self.capacity, self.unit_price, tax_rate)]) - self.wage
-        wage_profit = -self.labor
+        # adjust coefficents
+        self.update_labor_coeff() 
         
-        options = [unit_price_profit, labor_profit, wage_profit]
-        optimal_index = options.index(max(options))
+        labor_marginal = sum(self.demand_ratio) / len(self.demand_ratio)
         
-        if optimal_index == 0: # unit price change
-            self.unit_price = [up + 0.1 for up in self.unit_price]
-        elif optimal_index == 1: # labor change
-            self.layoff(amount=1)
-        elif optimal_index == 2: # wage change
-            self.wage += 1
-        else:
-            raise ValueError(f'Optimal index out of bounds {optimal_index}')
+        if labor_marginal >= 1:
+            self.debug_log('hire event')
+            self.hire(1)
+            
+        if labor_marginal < 1 and self.labor != 0:
+            self.debug_log('layoff event')
+            self.layoff(1)
             
         if debug.DATA_MODE:
             self.data['labor'].append(self.labor)
             self.data['wage'].append(self.wage)
             self.data['unit_price'].append(self.unit_price)
-            self.data['gradients'].append(options)
+            self.data['indicators'].append([labor_marginal])
         
     
-    def __init__(self, id: int, risk_factor: float):
+    def __init__(self, id: int, risk_factor: float, specialisation_param: int):
         # get meta
         self.id = id
         self.risk_factor = risk_factor
@@ -138,23 +163,27 @@ class Industry:
         
         # internal variables
         self.unit_price = [5 for i in range(0, debug.DEMAND_CLASSES_N)]
+        self.labor_coeff = [1 / debug.DEMAND_CLASSES_N for i in debug.DEMAND_CLASSES]
+        self.capacity = [1 for i in range(0, debug.DEMAND_CLASSES_N)]
+        
         self.wage = 4
         self.labor = 10
         
-        self.capacity = [1 for i in range(0, debug.DEMAND_CLASSES_N)]
-        
-        self.constraints = [1,1,1]
-        
         self.budget = 0
+        
+        # independent parameters
+        self.spec_param = specialisation_param
         
         if debug.DATA_MODE:
             self.data = {
-                'income' : [],
-                'expense' : [],
-                'units_sold' : [],
+                'fundamentals' : [],
+                'profit' : [],
+                'budget' : [],
                 'labor' : [],
                 'wage' : [],
+                'units_sold' : [],
                 'unit_price' : [],
-                'gradients' : []
+                'indicators' : [],
+                'demand_ratio' : [],
             }
         
