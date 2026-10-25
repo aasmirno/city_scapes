@@ -121,36 +121,66 @@ class Industry:
         diff = [(g - cur) / self.spec_param for cur,g in zip(self.labor_coeff, gradient)]
         self.labor_coeff = [coeff + adj for coeff,adj in zip(self.labor_coeff,diff)]
     
+        '''
         if debug.DATA_MODE:
             self.data.setdefault('labor_coeff', []).append(self.labor_coeff)
+        '''
     
     
-    def adjust(self, estimated_price: list):
+    def estimate_demand(self) -> float:
+        # current demand = units sold
+        current_demand = self.sales_history[0]
+        
+        # future demand
+        possible_sales = [(self.economic_data['income'] / unit) - sold for unit,sold in zip(self.unit_price,current_demand)]
+        
+        return possible_sales
+        
+    
+    def adjust(self, economic_data: dict):
         '''
             Make adjustments to company
         '''
+        # store market data
+        self.economic_data = economic_data
+        
         # adjust price
-        self.unit_price = estimated_price
+        self.unit_price = self.unit_price
         
+        future_demand = self.estimate_demand()
         
-        # adjust coefficents
+        # adjust labor coefficents
         self.update_labor_coeff() 
         
-        labor_marginal = sum(self.demand_ratio) / len(self.demand_ratio)
         
-        if labor_marginal >= 1:
+        # utility of hiring
+        income_possible = [i for i in range(0,debug.DEMAND_CLASSES_N)]
+        for i in range(0,debug.DEMAND_CLASSES_N):
+            maximum_supply = self.labor * self.labor_coeff[i] * self.capacity[i]
+            # demand larger than supply
+            if future_demand[i] > maximum_supply:
+                income = self.labor * self.labor_coeff[i] * self.capacity[i] * self.unit_price[i] * self.tax_rate[i]
+            # supply larger than demand
+            else:
+                income = -self.wage
+            
+            income_possible[i] = income
+            
+        hiring_utility = sum(income_possible) - self.wage
+        
+        if hiring_utility > 0:
             self.debug_log('hire event')
             self.hire(1)
             
-        if labor_marginal < 1 and self.labor != 0:
+        if hiring_utility < 0 and self.labor != 0:
             self.debug_log('layoff event')
             self.layoff(1)
             
         if debug.DATA_MODE:
             self.data['labor'].append(self.labor)
-            self.data['wage'].append(self.wage)
+            self.data['wage'].append(future_demand)
             self.data['unit_price'].append(self.unit_price)
-            self.data['indicators'].append([labor_marginal])
+            self.data.setdefault('hire_util', []).append(hiring_utility)
         
     
     def __init__(self, id: int, risk_factor: float, specialisation_param: int):
@@ -160,6 +190,7 @@ class Industry:
         
         # internal estimation 
         self.sales_history = []
+        self.economic_data = []
         
         # internal variables
         self.unit_price = [5 for i in range(0, debug.DEMAND_CLASSES_N)]

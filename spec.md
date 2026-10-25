@@ -14,7 +14,7 @@ Where $l_S$ is the product of employees $l$ and a labor coefficent $\alpha_S$
 
 Each firm will then present their total goods on the market at a unit price which is set internally and receive total profits from any purchases that occur. If applicable each firm will pay taxes to the appropriate authorities and then pay a wage to the workers employed at the firm. The total profit formula is as follows:
 
-$$P = (\sum_0^S{\sigma_S\mu_St_S}) - (wl)$$
+$$P = \sum_0^S{\sigma_S\mu_St_S} - wl$$
 
 where $\sigma_S$ is the units sold in the cycle, $\mu_S$ is the unit price, $t_S$ is the inverse of the tax rate, $w$ is the wage per employee, and $L$ is the number of employees.
 
@@ -45,14 +45,36 @@ $$\sum_0^S\alpha_S = 1$$
 
 Simply maximising $\alpha$ over this function leads to hyper specialisation, so to ensure that only gradual changes are made to the coefficents a step size is applied as a parmater of each firm.
 
+To calculate the expected utility of changing the labor pool we use a partial derivative of the profit function:
+
+$$\frac{dP}{dL} = -l$$
+
+When supply is greater than demand and:
+
+$$\frac{dP}{dL} = \sum_0^S{\alpha_Sc_S\mu_St_S} - w$$
+
+When demand is greater than supply.
+
+This means that the utility gained in firing a worker is equal to the wage that is paid to the worker if supply outstrips demand, and is equal to the potential income of hiring a worker minus the wage that is paid.
+
+
 To create a labor indicator, first the demand ratio is defined as:
 
-$$r(l,\alpha,\sigma) = \frac{\sigma_S}{l_Sc_S}$$
+$$r_S(l,\alpha,\sigma) = \frac{\sigma_S}{l_Sc_S}$$
 
-This ratio defines the amount of fullfiled demand. Since $\sigma_S \le l_Sc_S$ it follows $0 \lt r \le 1$. In order to smooth hire and layoff actions firms will only trigger such an action when the ratio reaches some internal level which is specific to each firm.
+This ratio defines the amount of fullfiled demand for each supply category, a one number summary is created by averaging across categories. Since $\sigma_S \le l_Sc_S$ it follows $0 \lt r \le 1$. In order to smooth hire and layoff actions firms will only trigger such an action when the ratio reaches some internal level which is specific to each firm.
 
+The ratio of demand can be used to analyse the profit attainable. Given the maximum income formula:
 
+$$I_S = l_Sc_S\mu_St_S$$
 
+We can multiply $I_S$ by $r_S$ to find actual income $I^*_S$:
+
+$$I^*_S = l_Sc_S\mu_St_S * \frac{\sigma_S}{l_Sc_S}$$
+
+Therefore in the case that demand outstrips labor (when $r_S = 1$ ), the profit that a firm is able to make in a category is equal to:
+
+$$l_Sc_S\mu_St_S - \frac{1}{n}wl$$ where
 
 ##### __Price__
 

@@ -85,26 +85,39 @@ def graph_industries(industries: list):
     return figure
 
 
-def graph_demand(demand_history: list):
-    """Plot generated demand for each category in a separate figure."""
+def graph_demand(demand_history: list, income_history: list):
+    """Plot generated demand and income over time in a separate figure."""
     if not demand_history:
         raise ValueError("No generated demand available to graph")
+    if len(income_history) != len(demand_history):
+        raise ValueError("Demand and income histories must have matching lengths")
 
     category_count = len(demand_history[0])
     if any(len(demand) != category_count for demand in demand_history):
         raise ValueError("Generated demand must have a consistent category count")
 
-    figure, axis = plt.subplots()
+    figure, (demand_axis, income_axis) = plt.subplots(
+        2,
+        1,
+        sharex=True,
+        figsize=(10, 7),
+    )
     for category in range(category_count):
-        axis.plot(
+        demand_axis.plot(
             [demand[category] for demand in demand_history],
             label=f"Demand category {category}",
         )
 
-    axis.set_title("Generated Demand")
-    axis.set_xlabel("Cycle")
-    axis.set_ylabel("Demand")
-    axis.legend()
+    demand_axis.set_title("Generated Demand")
+    demand_axis.set_ylabel("Demand")
+    demand_axis.legend()
+
+    income_axis.plot(income_history, label="Generated income", color="tab:green")
+    income_axis.set_title("Generated Income")
+    income_axis.set_xlabel("Cycle")
+    income_axis.set_ylabel("Income")
+    income_axis.legend()
+
     figure.tight_layout()
     return figure
 
@@ -165,9 +178,9 @@ demand_generator = DemandGenerator(types=debug.DEMAND_CLASSES_N,
                       distrib='gauss')
 
 # create income generator
-income_generator = DemandGenerator(types=debug.DEMAND_CLASSES_N,
-                      starting_means=[3 for i in range(0,debug.DEMAND_CLASSES_N)],
-                      starting_variances=[0.8 for i in range(0,debug.DEMAND_CLASSES_N)])
+income_generator = DemandGenerator(types=1,
+                      starting_means=[10000],
+                      starting_variances=[1000])
 
 # create industries
 for i in range(0, industries):
@@ -175,20 +188,22 @@ for i in range(0, industries):
     
 iterations = 500
 demand_history = []
+income_history = []
 for i in range(0,iterations):
     demand = [100 * cat for cat in demand_generator.get_next()]
     demand_history.append(demand)
     supply = [(ind.produce(), ind.unit_price) for ind in ind_list]
     sales = assign_demand(demand, supply)
 
-    prices = income_generator.get_next()
+    income = income_generator.get_next()
+    income_history.append(income[0])
     avg_industry_wage = sum([ind.wage for ind in ind_list]) / len(ind_list)
     for industry, units_sold in zip(ind_list, sales):
         industry.sell(units_sold, tax_rates)
-        industry.adjust(prices)
+        industry.adjust(economic_data = {'income':income[0]})
     
     
-graph_demand(demand_history)
+graph_demand(demand_history, income_history)
 graph_industries(ind_list)
 
 
